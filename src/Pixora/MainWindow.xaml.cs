@@ -1560,7 +1560,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         if (_isCropMode)
         {
-            if (_shortcutSettings.Matches(ShortcutAction.CancelOrClose, shortcut))
+            if ((e.Key == Key.Escape && Keyboard.Modifiers == ModifierKeys.None)
+                || _shortcutSettings.Matches(ShortcutAction.CancelOrClose, shortcut))
             {
                 ExitCropMode();
             }
