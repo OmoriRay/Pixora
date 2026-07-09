@@ -33,6 +33,12 @@ dotnet run --project tests\PureView.SmokeTests\PureView.SmokeTests.csproj
 
 该 smoke test 会覆盖目录排序、常见图片解码、GIF/HDR/AVIF、视频缩略图、快捷键、设置持久化、裁剪数学、压缩和渲染控件。
 
+## 接手维护
+
+- `AGENTS.md`：给后续接手者和 AI 编程助手的工程约定。
+- `docs\ARCHITECTURE.md`：工程结构、核心流程、服务职责、设置文件和已知技术债。
+- `docs\RELEASE.md`：版本、测试、隐私扫描、发布包检查和 GitHub Release 流程。
+
 ## 发布
 
 ```powershell
