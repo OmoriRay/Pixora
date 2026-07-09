@@ -234,6 +234,28 @@
                                           Content="使用缩略图磁盘缓存"
                                           Margin="0,16,0,0"
                                           Foreground="#DCE4EC" />
+                                <TextBlock Text="缩略图磁盘缓存上限"
+                                           Foreground="#AEB8C4"
+                                           FontSize="12"
+                                           Margin="0,12,0,6" />
+                                <ComboBox x:Name="ThumbnailDiskCacheSizeComboBox"
+                                          HorizontalAlignment="Stretch"
+                                          SelectedValuePath="Tag">
+                                    <ComboBoxItem Content="256 MB" Tag="256" />
+                                    <ComboBoxItem Content="512 MB" Tag="512" />
+                                    <ComboBoxItem Content="1 GB" Tag="1024" />
+                                    <ComboBoxItem Content="2 GB" Tag="2048" />
+                                </ComboBox>
+                                <StackPanel Orientation="Horizontal"
+                                            Margin="0,10,0,0">
+                                    <Button Content="清理缩略图缓存"
+                                            MinWidth="116"
+                                            Margin="0,0,8,0"
+                                            Click="ClearThumbnailDiskCacheButton_Click" />
+                                    <Button Content="打开错误日志位置"
+                                            MinWidth="116"
+                                            Click="OpenErrorLogFolderButton_Click" />
+                                </StackPanel>
                                 <TextBlock x:Name="ThumbnailDiskCachePathText"
                                            Foreground="#AEB8C4"
                                            FontSize="11"

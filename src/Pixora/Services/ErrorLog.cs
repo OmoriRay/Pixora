@@ -7,7 +7,9 @@ namespace Pixora.Services;
 
 public static class ErrorLog
 {
+    private const long MaximumLogBytes = 1L * 1024 * 1024;
     private static readonly object SyncRoot = new();
+    private static readonly RollingTextFile LogFile = new(LogPath, MaximumLogBytes);
     private static bool _diagnosticsWritten;
 
     public static string LogPath =>
@@ -36,9 +38,16 @@ public static class ErrorLog
     {
         lock (SyncRoot)
         {
-            EnsureFolder();
-            File.WriteAllText(LogPath, string.Empty);
+            LogFile.Clear();
             _diagnosticsWritten = false;
+        }
+    }
+
+    public static string ReadRecent(int maximumCharacters = 12_000)
+    {
+        lock (SyncRoot)
+        {
+            return LogFile.ReadRecent(maximumCharacters);
         }
     }
 
@@ -48,17 +57,16 @@ public static class ErrorLog
         {
             lock (SyncRoot)
             {
-                EnsureFolder();
                 if (!_diagnosticsWritten)
                 {
-                    File.AppendAllText(LogPath, CreateDiagnosticsBlock());
+                    LogFile.Append(CreateDiagnosticsBlock());
                     _diagnosticsWritten = true;
                 }
 
                 var content = exception is null
                     ? $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {source}\n{message}\n\n"
                     : $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {source}\n{message}\n{exception}\n\n";
-                File.AppendAllText(LogPath, content);
+                LogFile.Append(content);
             }
         }
         catch
@@ -92,11 +100,4 @@ public static class ErrorLog
         return builder.ToString();
     }
 
-    private static void EnsureFolder()
-    {
-        if (!string.IsNullOrWhiteSpace(LogFolder))
-        {
-            Directory.CreateDirectory(LogFolder);
-        }
-    }
 }

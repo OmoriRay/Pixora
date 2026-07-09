@@ -1,5 +1,6 @@
 using Pixora.Models;
 using Pixora.Services;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
@@ -42,7 +43,8 @@ public partial class ShortcutSettingsWindow : Window
         SelectComboBoxValue(DisplayPreviewCacheComboBox, viewerSettings.DisplayPreviewCacheMegabytes, ViewerSettings.DefaultDisplayPreviewCacheMegabytes);
         LowMemoryProtectionCheckBox.IsChecked = viewerSettings.EnableLowMemoryProtection;
         ThumbnailDiskCacheCheckBox.IsChecked = viewerSettings.UseThumbnailDiskCache;
-        ThumbnailDiskCachePathText.Text = $"保存位置：{ThumbnailDiskCache.DefaultCacheFolder}";
+        SelectComboBoxValue(ThumbnailDiskCacheSizeComboBox, viewerSettings.ThumbnailDiskCacheMegabytes, ViewerSettings.DefaultThumbnailDiskCacheMegabytes);
+        RefreshThumbnailDiskCacheInfo();
         AppVersionText.Text = $"{AppInfo.Name} {GetAppVersion()}";
         RefreshRows();
         UpdateButtons();
@@ -387,6 +389,9 @@ public partial class ShortcutSettingsWindow : Window
             _viewerSettings.DisplayPreviewCacheMegabytes = GetSelectedMegabytes(DisplayPreviewCacheComboBox, ViewerSettings.DefaultDisplayPreviewCacheMegabytes);
             _viewerSettings.EnableLowMemoryProtection = LowMemoryProtectionCheckBox.IsChecked == true;
             _viewerSettings.UseThumbnailDiskCache = ThumbnailDiskCacheCheckBox.IsChecked == true;
+            _viewerSettings.ThumbnailDiskCacheMegabytes = GetSelectedMegabytes(
+                ThumbnailDiskCacheSizeComboBox,
+                ViewerSettings.DefaultThumbnailDiskCacheMegabytes);
             SaveWindowPlacement();
             _viewerSettings.Save();
             _windowPlacementSaved = true;
@@ -400,6 +405,58 @@ public partial class ShortcutSettingsWindow : Window
 
         DialogResult = true;
         Close();
+    }
+
+    private void ClearThumbnailDiskCacheButton_Click(object sender, RoutedEventArgs e)
+    {
+        var confirm = MessageBox.Show(
+            this,
+            "确定清理本机缩略图缓存吗？\n\n不会删除原始图片或视频。之后再次浏览时会重新生成缩略图。",
+            "清理缩略图缓存",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+        if (confirm != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        try
+        {
+            var result = new ThumbnailDiskCache().Clear();
+            RefreshThumbnailDiskCacheInfo();
+            if (ShowOperationNotificationsCheckBox.IsChecked == true)
+            {
+                MessageBox.Show(
+                    this,
+                    $"已清理 {result.RemovedFileCount:N0} 个缓存文件，释放 {FormatFileSize(result.RemovedBytes)}。",
+                    "缩略图缓存",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorLog.WriteException("ClearThumbnailDiskCache", "清理缩略图缓存失败。", ex);
+            MessageBox.Show(this, $"清理缩略图缓存失败：\n{ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void OpenErrorLogFolderButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Directory.CreateDirectory(ErrorLog.LogFolder);
+            Process.Start(new ProcessStartInfo(ErrorLog.LogFolder)
+            {
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            ErrorLog.WriteException("OpenErrorLogFolder", "打开错误日志位置失败。", ex);
+            MessageBox.Show(this, $"打开错误日志位置失败：\n{ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private void RegisterFileAssociationsButton_Click(object sender, RoutedEventArgs e)
@@ -563,6 +620,32 @@ public partial class ShortcutSettingsWindow : Window
         }
 
         return fallback;
+    }
+
+    private void RefreshThumbnailDiskCacheInfo()
+    {
+        var statistics = new ThumbnailDiskCache().GetStatistics();
+        ThumbnailDiskCachePathText.Text = $"保存位置：{ThumbnailDiskCache.DefaultCacheFolder}\n当前占用：{FormatFileSize(statistics.TotalBytes)}，{statistics.FileCount:N0} 项";
+    }
+
+    private static string FormatFileSize(long bytes)
+    {
+        if (bytes < 1024)
+        {
+            return $"{Math.Max(0, bytes)} B";
+        }
+
+        var units = new[] { "KB", "MB", "GB", "TB" };
+        var value = (double)bytes;
+        var unitIndex = -1;
+        do
+        {
+            value /= 1024;
+            unitIndex++;
+        }
+        while (value >= 1024 && unitIndex < units.Length - 1);
+
+        return $"{value:0.##} {units[unitIndex]}";
     }
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)

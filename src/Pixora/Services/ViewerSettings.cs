@@ -16,6 +16,8 @@ public sealed class ViewerSettings
 
     public const int DefaultDisplayPreviewCacheMegabytes = 192;
 
+    public const int DefaultThumbnailDiskCacheMegabytes = 512;
+
     public bool ShowThumbnailSidebar { get; set; } = true;
 
     public bool UseDoubleThumbnailColumns { get; set; } = true;
@@ -45,6 +47,9 @@ public sealed class ViewerSettings
     public bool EnableLowMemoryProtection { get; set; } = true;
 
     public bool UseThumbnailDiskCache { get; set; }
+
+    public int ThumbnailDiskCacheMegabytes { get; set; } = DefaultThumbnailDiskCacheMegabytes;
+
     public double ShortcutSettingsWindowWidth { get; set; }
 
     public double ShortcutSettingsWindowHeight { get; set; }

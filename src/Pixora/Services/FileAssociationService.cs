@@ -23,32 +23,7 @@ public static class FileAssociationService
     private const int ShellChangeNotifyAssociationChanged = 0x08000000;
     private const uint ShellChangeNotifyIdList = 0x0000;
 
-    private static readonly string[] Extensions =
-    [
-        ".jpg",
-        ".jpeg",
-        ".jpe",
-        ".jfif",
-        ".png",
-        ".apng",
-        ".bmp",
-        ".gif",
-        ".webp",
-        ".tif",
-        ".tiff",
-        ".ico",
-        ".cur",
-        ".heic",
-        ".heif",
-        ".avif",
-        ".avifs",
-        ".jxr",
-        ".wdp",
-        ".hdp",
-        ".hdr",
-    ];
-
-    public static IReadOnlyList<string> SupportedExtensions => Extensions;
+    public static IReadOnlyList<string> SupportedExtensions => MediaFormatRegistry.SupportedStillImageExtensions;
 
     public static string ExpectedExternalDefaultToolPath =>
         Path.Combine(AppContext.BaseDirectory, "tools", SetUserFtaFileName);
@@ -85,7 +60,7 @@ public static class FileAssociationService
 
         using (var fileAssociationsKey = Registry.CurrentUser.CreateSubKey($@"{CapabilitiesPath}\FileAssociations"))
         {
-            foreach (var extension in Extensions)
+            foreach (var extension in SupportedExtensions)
             {
                 fileAssociationsKey?.SetValue(extension, ProgId);
             }
@@ -96,7 +71,7 @@ public static class FileAssociationService
             registeredApplicationsKey?.SetValue(AppName, CapabilitiesPath);
         }
 
-        foreach (var extension in Extensions)
+        foreach (var extension in SupportedExtensions)
         {
             using var openWithKey = Registry.CurrentUser.CreateSubKey($@"Software\Classes\{extension}\OpenWithProgids");
             openWithKey?.SetValue(ProgId, Array.Empty<byte>(), RegistryValueKind.None);
@@ -176,7 +151,7 @@ public static class FileAssociationService
 
         var succeeded = 0;
         var failures = new List<ExternalDefaultAssociationFailure>();
-        foreach (var extension in Extensions)
+        foreach (var extension in SupportedExtensions)
         {
             var result = RunSetUserFta(toolPath, extension);
             if (result.ExitCode == 0)
@@ -189,7 +164,7 @@ public static class FileAssociationService
         }
 
         NotifyAssociationChanged();
-        return new ExternalDefaultAssociationResult(Extensions.Length, succeeded, failures);
+        return new ExternalDefaultAssociationResult(SupportedExtensions.Count, succeeded, failures);
     }
 
     public static void OpenDefaultAppsSettings()
@@ -202,7 +177,7 @@ public static class FileAssociationService
 
     public static void Unregister()
     {
-        foreach (var extension in Extensions)
+        foreach (var extension in SupportedExtensions)
         {
             using var openWithKey = Registry.CurrentUser.OpenSubKey($@"Software\Classes\{extension}\OpenWithProgids", writable: true);
             openWithKey?.DeleteValue(ProgId, throwOnMissingValue: false);

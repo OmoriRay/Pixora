@@ -3,6 +3,7 @@ using Pixora.Services;
 using Pixora.Controls;
 using Pixora.Models;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -51,11 +52,18 @@ internal static class Program
         AssertRadianceHdrLoads(hdrImage);
         AssertAvifLoads(avifImage);
         AssertWebImageExtensions();
+        AssertMediaFormatRegistry();
+        AssertMediaCatalogLoaderCancellation(imageFolder);
         AssertVideoMediaSupport(root);
         AssertCatalogSortModes(root);
         AssertFavoriteStore(root);
         AssertShortcutSettings();
         AssertViewerSettings(root);
+        AssertSettingsWindowInitializes();
+        AssertMemoryCacheCoordinator();
+        AssertThumbnailDiskCache(root);
+        AssertThumbnailImageLoader(firstImage, root);
+        AssertRollingTextFile(root);
         AssertBatchCompressionSettings(root);
         AssertFitMathKeepsTallImagesInsideViewport();
         AssertFitMathDoesNotUpscaleSmallImagesByDefault();
@@ -275,6 +283,35 @@ internal static class Program
         Assert(ImageCatalog.IsLikelyAnimatedImagePath("sample.gif"), "GIF should count as a likely animated image for lightweight stats.");
         Assert(ImageCatalog.IsLikelyAnimatedImagePath("sample.apng"), "APNG should count as a likely animated image for lightweight stats.");
         Assert(!ImageCatalog.IsLikelyAnimatedImagePath("sample.webp"), "Static WebP is common enough that lightweight stats should not count every WebP as animated.");
+    }
+
+    private static void AssertMediaFormatRegistry()
+    {
+        Assert(
+            MediaFormatRegistry.SupportedStillImageExtensions.SequenceEqual(FileAssociationService.SupportedExtensions, StringComparer.OrdinalIgnoreCase),
+            "File association extensions should use the central still-image format registry.");
+        Assert(MediaFormatRegistry.SupportedVideoExtensions.Contains(".mp4"), "Central format registry should include MP4.");
+        Assert(MediaFormatRegistry.IsSupportedMediaPath("sample.MP4"), "Central format registry should handle extension case-insensitively.");
+        Assert(!MediaFormatRegistry.IsSupportedMediaPath("sample.svg"), "Unsupported formats should stay out of the central registry.");
+    }
+
+    private static void AssertMediaCatalogLoaderCancellation(string imageFolder)
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        var cancelled = false;
+        try
+        {
+            MediaCatalogLoader.LoadFolderAsync(imageFolder, ImageSortMode.NameNatural, cts.Token)
+                .GetAwaiter()
+                .GetResult();
+        }
+        catch (OperationCanceledException)
+        {
+            cancelled = true;
+        }
+
+        Assert(cancelled, "Background catalog loading should honor a cancellation request before scanning a directory.");
     }
 
     private static void AssertVideoMediaSupport(string root)
@@ -551,6 +588,7 @@ internal static class Program
             ShowDirectoryStats = true,
             ShowAnimationControls = false,
             ShowOperationNotifications = false,
+            ThumbnailDiskCacheMegabytes = 1024,
         };
 
         settings.Save(settingsPath);
@@ -565,8 +603,105 @@ internal static class Program
         Assert(loaded.ShowDirectoryStats, "Viewer settings should persist directory stats visibility.");
         Assert(!loaded.ShowAnimationControls, "Viewer settings should persist animation control visibility.");
         Assert(!loaded.ShowOperationNotifications, "Viewer settings should persist operation notification visibility.");
+        Assert(loaded.ThumbnailDiskCacheMegabytes == 1024, "Viewer settings should persist thumbnail disk cache capacity.");
         Assert(FileAssociationService.SupportedExtensions.Contains(".gif"), "File association extensions should include GIF.");
         Assert(FileAssociationService.SupportedExtensions.All(extension => ImageCatalog.IsSupportedStillImagePath("sample" + extension)), "File association extensions should be supported image extensions.");
+    }
+
+    private static void AssertMemoryCacheCoordinator()
+    {
+        var imageCache = ImageCache.FromMegabytes(1);
+        var previewCache = BitmapSourceMemoryCache.FromMegabytes(1);
+        var coordinator = new MemoryCacheCoordinator(imageCache, previewCache);
+
+        coordinator.ApplyConfiguredBudgets(2, 3);
+        var snapshot = coordinator.CaptureSnapshot(isProtectionEnabled: false);
+        Assert(snapshot.MainImageBudgetBytes == 2L * 1024 * 1024, "Memory coordinator should apply the main image cache budget.");
+        Assert(snapshot.PreviewBudgetBytes == 3L * 1024 * 1024, "Memory coordinator should apply the preview cache budget.");
+        Assert(MemoryCacheCoordinator.IsUnderPressure(90, 100), "Memory coordinator should detect the 90% memory pressure threshold.");
+        Assert(!MemoryCacheCoordinator.IsUnderPressure(89, 100), "Memory coordinator should not trim below the pressure threshold.");
+    }
+
+    private static void AssertSettingsWindowInitializes()
+    {
+        var viewerSettings = new ViewerSettings
+        {
+            ThumbnailDiskCacheMegabytes = 1024,
+        };
+        var window = new ShortcutSettingsWindow(ShortcutSettings.Load(), viewerSettings);
+        var comboBox = window.FindName("ThumbnailDiskCacheSizeComboBox") as ComboBox;
+        var cachePathText = window.FindName("ThumbnailDiskCachePathText") as TextBlock;
+
+        Assert(comboBox is not null, "Settings window should initialize the thumbnail disk cache capacity selector.");
+        Assert(comboBox!.SelectedValue?.ToString() == "1024", "Settings window should select the persisted thumbnail disk cache capacity.");
+        Assert(cachePathText?.Text.Contains("当前占用", StringComparison.Ordinal) == true, "Settings window should show thumbnail disk cache usage.");
+    }
+
+    private static void AssertThumbnailDiskCache(string root)
+    {
+        var folder = Path.Combine(root, "test-output", "thumbnail-disk-cache");
+        if (Directory.Exists(folder))
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+
+        var sourceFolder = Path.Combine(root, "test-output", "thumbnail-disk-cache-sources");
+        Directory.CreateDirectory(sourceFolder);
+        var firstSource = Path.Combine(sourceFolder, "first.png");
+        var secondSource = Path.Combine(sourceFolder, "second.png");
+        File.WriteAllBytes(firstSource, [1]);
+        File.WriteAllBytes(secondSource, [2]);
+
+        var cache = new ThumbnailDiskCache(folder, maxBytes: 1024 * 1024);
+        var bitmap = CreateCacheTestDocument("thumbnail-cache-test.png", 2, 2).Bitmap;
+        cache.Save(firstSource, 64, 64, bitmap);
+        cache.Save(secondSource, 64, 64, bitmap);
+        var statistics = cache.GetStatistics();
+        Assert(statistics.FileCount == 2, $"Thumbnail disk cache should save two entries, got {statistics.FileCount}.");
+        Assert(cache.TryLoad(firstSource, 64, 64, out var loaded) && loaded is not null, "Thumbnail disk cache should load a saved entry.");
+
+        var trimmed = cache.TrimToBytes(1);
+        Assert(trimmed.RemainingBytes <= 1, "Thumbnail disk cache trimming should enforce its byte budget.");
+        Assert(cache.GetStatistics().FileCount == 0, "Thumbnail disk cache should remove entries that do not fit the byte budget.");
+
+        cache.Save(firstSource, 64, 64, bitmap);
+        var cleared = cache.Clear();
+        Assert(cleared.RemovedFileCount == 1, "Thumbnail disk cache clear should remove saved entries.");
+        Assert(cache.GetStatistics().FileCount == 0, "Thumbnail disk cache should be empty after clear.");
+    }
+
+    private static void AssertRollingTextFile(string root)
+    {
+        var folder = Path.Combine(root, "test-output", "rolling-log");
+        if (Directory.Exists(folder))
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+
+        var log = new RollingTextFile(Path.Combine(folder, "error.log"), maximumBytes: 40);
+        log.Append("first entry that fills the active log\n");
+        log.Append("second entry\n");
+        Assert(File.Exists(log.PreviousPath), "Rolling log should preserve the previous log when its capacity is exceeded.");
+        Assert(log.ReadRecent(6) == "entry\n", "Rolling log should return the requested tail of the active log.");
+
+        log.Clear();
+        Assert(log.ReadRecent(100).Length == 0, "Clearing a rolling log should clear the active log.");
+        Assert(!File.Exists(log.PreviousPath), "Clearing a rolling log should remove the previous log backup.");
+    }
+
+    private static void AssertThumbnailImageLoader(string imagePath, string root)
+    {
+        var cacheFolder = Path.Combine(root, "test-output", "thumbnail-image-loader-cache");
+        if (Directory.Exists(cacheFolder))
+        {
+            Directory.Delete(cacheFolder, recursive: true);
+        }
+
+        var loader = new ThumbnailImageLoader(new ThumbnailDiskCache(cacheFolder));
+        var thumbnail = loader.Load(imagePath, 64, 64, useDiskCache: true, CancellationToken.None);
+        Assert(thumbnail.PixelWidth <= 64 && thumbnail.PixelHeight <= 64, "Thumbnail loader should constrain image dimensions to the requested bounds.");
+        var cachedThumbnail = loader.Load(imagePath, 64, 64, useDiskCache: true, CancellationToken.None);
+        Assert(cachedThumbnail.PixelWidth == thumbnail.PixelWidth && cachedThumbnail.PixelHeight == thumbnail.PixelHeight, "Thumbnail loader should reuse compatible disk cache entries.");
     }
 
     private static void AssertBatchCompressionSettings(string root)

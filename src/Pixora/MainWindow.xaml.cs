@@ -88,10 +88,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly ImageCatalog _catalog = new();
     private readonly ImageCache _cache = ImageCache.FromMegabytes(MainImageCacheMegabytes);
     private readonly BitmapSourceMemoryCache _displayPreviewCache = BitmapSourceMemoryCache.FromMegabytes(DisplayPreviewCacheMegabytes);
+    private readonly MemoryCacheCoordinator _memoryCacheCoordinator;
     private readonly ShortcutSettings _shortcutSettings = ShortcutSettings.Load();
     private readonly ViewerSettings _viewerSettings = ViewerSettings.Load();
     private readonly FavoriteStore _favorites = FavoriteStore.Load();
     private readonly ThumbnailDiskCache _thumbnailDiskCache = new();
+    private readonly ThumbnailImageLoader _thumbnailImageLoader;
     private readonly DispatcherTimer _animationTimer;
     private readonly DispatcherTimer _boundaryToastTimer;
     private readonly DispatcherTimer _qualityRestoreTimer;
@@ -111,6 +113,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private CancellationTokenSource? _directoryStatsCts;
     private CancellationTokenSource? _idleFullResolutionCts;
     private CancellationTokenSource? _catalogCompletionCts;
+    private CancellationTokenSource? _folderLoadCts;
     private ScrollViewer? _thumbnailScrollViewer;
     private ImageDocument? _currentDocument;
     private bool _showInfo = true;
@@ -131,6 +134,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private int _animationFrameIndex;
     private int _thumbnailGeneration;
     private int _catalogCompletionGeneration;
+    private int _folderLoadGeneration;
     private int _thumbnailVisibleStartIndex;
     private int _thumbnailVisibleEndIndex = -1;
     private int _rotationDegrees;
@@ -201,6 +205,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public MainWindow()
     {
         InitializeComponent();
+        _memoryCacheCoordinator = new MemoryCacheCoordinator(_cache, _displayPreviewCache);
+        _thumbnailImageLoader = new ThumbnailImageLoader(_thumbnailDiskCache);
         _catalog.SortMode = _viewerSettings.SortMode;
         _showThumbnailSidebar = _viewerSettings.ShowThumbnailSidebar;
         _useDoubleThumbnailColumns = _viewerSettings.UseDoubleThumbnailColumns;
@@ -267,6 +273,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _directoryStatsCts?.Cancel();
         _directoryStatsCts = null;
         CancelCatalogCompletion();
+        CancelFolderLoad();
         CancelIdleFullResolutionLoad();
         CancelPreload();
     }
@@ -305,12 +312,31 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async Task OpenFolderAsync(string folder)
     {
+        CancellationTokenSource? cts = null;
+        var generation = 0;
         try
         {
             var fullFolder = Path.GetFullPath(folder);
             CancelCatalogCompletion();
+            CancelFolderLoad();
             _isFavoritesView = false;
-            _catalog.LoadFromFolder(fullFolder);
+            cts = new CancellationTokenSource();
+            generation = ++_folderLoadGeneration;
+            _folderLoadCts = cts;
+            LoadingPanel.Visibility = Visibility.Visible;
+            LoadingText.Text = "正在扫描目录...";
+            ErrorPanel.Visibility = Visibility.Collapsed;
+            EmptyPanel.Visibility = Visibility.Collapsed;
+
+            var loadedCatalog = await MediaCatalogLoader.LoadFolderAsync(fullFolder, _catalog.SortMode, cts.Token);
+            if (cts.IsCancellationRequested
+                || generation != _folderLoadGeneration
+                || !ReferenceEquals(_folderLoadCts, cts))
+            {
+                return;
+            }
+
+            _catalog.LoadFromCatalog(loadedCatalog);
             RefreshThumbnailItems();
             StartDirectoryStatsUpdate();
             if (_catalog.Count == 0)
@@ -324,14 +350,32 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             await LoadCurrentAsync();
             RememberOpenedFolder(fullFolder);
         }
+        catch (OperationCanceledException)
+        {
+        }
         catch (Exception ex)
         {
+            if (generation != 0 && generation != _folderLoadGeneration)
+            {
+                return;
+            }
+
             ShowUserError($"无法打开目录：\n{folder}\n\n{FriendlyException(ex)}", ex);
+        }
+        finally
+        {
+            if (cts is not null && ReferenceEquals(_folderLoadCts, cts))
+            {
+                _folderLoadCts = null;
+            }
+
+            cts?.Dispose();
         }
     }
 
     private async Task OpenSingleFileAsync(string fullPath, bool rememberFolder)
     {
+        CancelFolderLoad();
         CancelCatalogCompletion();
         _catalog.LoadSingleFile(fullPath);
         RefreshThumbnailItems();
@@ -371,17 +415,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             var token = cts.Token;
-            var completedCatalog = await Task.Run(() =>
-            {
-                token.ThrowIfCancellationRequested();
-                var catalog = new ImageCatalog
-                {
-                    SortMode = sortMode,
-                };
-                catalog.LoadFromFile(fullPath);
-                token.ThrowIfCancellationRequested();
-                return catalog;
-            }, token);
+            var completedCatalog = await MediaCatalogLoader.LoadFromFileAsync(fullPath, sortMode, token);
 
             await Dispatcher.InvokeAsync(() =>
             {
@@ -427,6 +461,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _catalogCompletionGeneration++;
         var cts = _catalogCompletionCts;
         _catalogCompletionCts = null;
+        try
+        {
+            cts?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
+
+    private void CancelFolderLoad()
+    {
+        _folderLoadGeneration++;
+        var cts = _folderLoadCts;
+        _folderLoadCts = null;
         try
         {
             cts?.Cancel();
@@ -594,8 +642,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void ApplyRuntimeViewerSettings()
     {
-        _cache.SetMaxMegabytes(NormalizeMegabytes(_viewerSettings.MainImageCacheMegabytes, ViewerSettings.DefaultMainImageCacheMegabytes));
-        _displayPreviewCache.SetMaxMegabytes(NormalizeMegabytes(_viewerSettings.DisplayPreviewCacheMegabytes, ViewerSettings.DefaultDisplayPreviewCacheMegabytes));
+        _memoryCacheCoordinator.ApplyConfiguredBudgets(
+            NormalizeMegabytes(_viewerSettings.MainImageCacheMegabytes, ViewerSettings.DefaultMainImageCacheMegabytes),
+            NormalizeMegabytes(_viewerSettings.DisplayPreviewCacheMegabytes, ViewerSettings.DefaultDisplayPreviewCacheMegabytes));
+        _thumbnailDiskCache.SetMaxMegabytes(NormalizeMegabytes(
+            _viewerSettings.ThumbnailDiskCacheMegabytes,
+            ViewerSettings.DefaultThumbnailDiskCacheMegabytes));
+        _ = Task.Run(() => _thumbnailDiskCache.TrimToBytes(_thumbnailDiskCache.MaxBytes));
         ApplyLowMemoryProtectionIfNeeded();
     }
 
@@ -606,18 +659,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private bool ShouldReduceBackgroundLoading()
     {
-        if (!_viewerSettings.EnableLowMemoryProtection)
-        {
-            return false;
-        }
-
-        var memoryInfo = GC.GetGCMemoryInfo();
-        if (memoryInfo.HighMemoryLoadThresholdBytes <= 0)
-        {
-            return false;
-        }
-
-        return memoryInfo.MemoryLoadBytes >= (long)(memoryInfo.HighMemoryLoadThresholdBytes * 0.90);
+        return _memoryCacheCoordinator.ShouldReduceBackgroundLoading(_viewerSettings.EnableLowMemoryProtection);
     }
 
     private void ApplyLowMemoryProtectionIfNeeded()
@@ -627,8 +669,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        _cache.TrimToBytes(Math.Max(64L * 1024 * 1024, _cache.MaxBytes / 2));
-        _displayPreviewCache.TrimToBytes(Math.Max(32L * 1024 * 1024, _displayPreviewCache.MaxBytes / 2));
+        _memoryCacheCoordinator.TrimForMemoryPressure();
+        TrimThumbnailCache(targetCount: 0);
     }
 
     private async Task<ImageDocument?> TryLoadDisplayPreviewDocumentAsync(string path, CancellationToken cancellationToken)
@@ -2380,6 +2422,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var currentPath = _catalog.CurrentPath;
         var currentDocument = _currentDocument;
         var memoryInfo = GC.GetGCMemoryInfo();
+        var cacheSnapshot = _memoryCacheCoordinator.CaptureSnapshot(_viewerSettings.EnableLowMemoryProtection);
+        var thumbnailDiskCacheStatistics = _thumbnailDiskCache.GetStatistics();
 
         using var process = Process.GetCurrentProcess();
         var builder = new StringBuilder();
@@ -2430,16 +2474,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         builder.AppendLine();
         builder.AppendLine("缓存与内存");
-        builder.AppendLine($"主图缓存上限：{FormatFileSize(_cache.MaxBytes)}");
-        builder.AppendLine($"主图缓存估算占用：{FormatFileSize(_cache.TotalEstimatedBytes)}");
+        builder.AppendLine($"主图缓存上限：{FormatFileSize(cacheSnapshot.MainImageBudgetBytes)}");
+        builder.AppendLine($"主图缓存估算占用：{FormatFileSize(cacheSnapshot.MainImageEstimatedBytes)}");
         builder.AppendLine($"主图缓存数量：{_cache.Count:N0}");
-        builder.AppendLine($"显示预览缓存上限：{FormatFileSize(_displayPreviewCache.MaxBytes)}");
-        builder.AppendLine($"显示预览缓存估算占用：{FormatFileSize(_displayPreviewCache.TotalEstimatedBytes)}");
+        builder.AppendLine($"显示预览缓存上限：{FormatFileSize(cacheSnapshot.PreviewBudgetBytes)}");
+        builder.AppendLine($"显示预览缓存估算占用：{FormatFileSize(cacheSnapshot.PreviewEstimatedBytes)}");
         builder.AppendLine($"缩略图内存缓存数量：{_thumbnailCache.Count:N0}/{MaxThumbnailCacheItems:N0}");
         builder.AppendLine($"缩略图磁盘缓存：{FormatOnOff(_viewerSettings.UseThumbnailDiskCache)}");
+        builder.AppendLine($"缩略图磁盘缓存上限：{FormatFileSize(_thumbnailDiskCache.MaxBytes)}");
+        builder.AppendLine($"缩略图磁盘缓存占用：{FormatFileSize(thumbnailDiskCacheStatistics.TotalBytes)}（{thumbnailDiskCacheStatistics.FileCount:N0} 项）");
         builder.AppendLine($"缩略图磁盘缓存目录：{_thumbnailDiskCache.Folder}");
         builder.AppendLine($"低内存保护：{FormatOnOff(_viewerSettings.EnableLowMemoryProtection)}");
-        builder.AppendLine($"当前是否降低后台加载：{FormatOnOff(ShouldReduceBackgroundLoading())}");
+        builder.AppendLine($"当前是否降低后台加载：{FormatOnOff(cacheSnapshot.IsUnderPressure)}");
         builder.AppendLine($"GC 当前内存：{FormatFileSize(GC.GetTotalMemory(forceFullCollection: false))}");
         builder.AppendLine($"GC 内存负载：{FormatFileSize(memoryInfo.MemoryLoadBytes)}");
         builder.AppendLine($"GC 高内存阈值：{FormatFileSize(memoryInfo.HighMemoryLoadThresholdBytes)}");
@@ -4006,138 +4052,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private BitmapSource LoadThumbnail(string path, CancellationToken cancellationToken)
     {
-        if (_viewerSettings.UseThumbnailDiskCache
-            && _thumbnailDiskCache.TryLoad(path, ThumbnailDecodeWidth, ThumbnailDecodeHeight, out var cached)
-            && cached is not null)
-        {
-            return cached;
-        }
-
-        var thumbnail = CreateThumbnail(path, cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-        if (_viewerSettings.UseThumbnailDiskCache)
-        {
-            _thumbnailDiskCache.Save(path, ThumbnailDecodeWidth, ThumbnailDecodeHeight, thumbnail);
-        }
-
-        return thumbnail;
-    }
-
-    private static BitmapSource CreateThumbnail(string path, CancellationToken cancellationToken)
-    {
-        if (ImageCatalog.IsSupportedVideoPath(path))
-        {
-            return VideoThumbnailLoader.LoadThumbnail(path, 256, cancellationToken);
-        }
-
-        if (TryLoadWicThumbnail(path, ThumbnailDecodeWidth, ThumbnailDecodeHeight, cancellationToken, out var wicThumbnail))
-        {
-            return wicThumbnail;
-        }
-
-        var document = ImageLoader.Load(path, cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-        var source = document.Bitmap;
-        return ScaleBitmapForThumbnail(source);
-    }
-
-    private static bool TryLoadWicThumbnail(
-        string path,
-        int maxWidth,
-        int maxHeight,
-        CancellationToken cancellationToken,
-        out BitmapSource thumbnail)
-    {
-        thumbnail = null!;
-
-        try
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            int pixelWidth;
-            int pixelHeight;
-            using (var probeStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
-            {
-                var decoder = BitmapDecoder.Create(
-                    probeStream,
-                    BitmapCreateOptions.IgnoreColorProfile,
-                    BitmapCacheOption.None);
-
-                if (decoder.Frames.Count == 0)
-                {
-                    return false;
-                }
-
-                pixelWidth = decoder.Frames[0].PixelWidth;
-                pixelHeight = decoder.Frames[0].PixelHeight;
-            }
-
-            if (pixelWidth <= 0 || pixelHeight <= 0)
-            {
-                return false;
-            }
-
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var widthRatio = maxWidth / Math.Max(1.0, pixelWidth);
-            var heightRatio = maxHeight / Math.Max(1.0, pixelHeight);
-            var scale = Math.Min(1.0, Math.Min(widthRatio, heightRatio));
-            var decodeWidth = Math.Max(1, (int)Math.Round(pixelWidth * scale));
-            var decodeHeight = Math.Max(1, (int)Math.Round(pixelHeight * scale));
-
-            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-            var bitmap = new BitmapImage();
-            bitmap.BeginInit();
-            bitmap.CacheOption = BitmapCacheOption.OnLoad;
-            bitmap.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
-            if (widthRatio <= heightRatio)
-            {
-                bitmap.DecodePixelWidth = decodeWidth;
-            }
-            else
-            {
-                bitmap.DecodePixelHeight = decodeHeight;
-            }
-
-            bitmap.StreamSource = stream;
-            bitmap.EndInit();
-
-            if (bitmap.CanFreeze)
-            {
-                bitmap.Freeze();
-            }
-
-            thumbnail = bitmap;
-            return true;
-        }
-        catch (Exception ex) when (ex is NotSupportedException
-            or FileFormatException
-            or IOException
-            or UnauthorizedAccessException
-            or ArgumentException)
-        {
-            return false;
-        }
-    }
-
-    private static BitmapSource ScaleBitmapForThumbnail(BitmapSource source)
-    {
-        var scale = Math.Min(
-            ThumbnailDecodeWidth / Math.Max(1.0, source.PixelWidth),
-            ThumbnailDecodeHeight / Math.Max(1.0, source.PixelHeight));
-        scale = Math.Min(1.0, scale);
-        if (scale >= 0.999)
-        {
-            return source;
-        }
-
-        var thumbnail = new TransformedBitmap(source, new ScaleTransform(scale, scale));
-        if (thumbnail.CanFreeze)
-        {
-            thumbnail.Freeze();
-        }
-
-        return thumbnail;
+        return _thumbnailImageLoader.Load(
+            path,
+            ThumbnailDecodeWidth,
+            ThumbnailDecodeHeight,
+            _viewerSettings.UseThumbnailDiskCache,
+            cancellationToken);
     }
 
     private void UpdateThumbnailSelection()
@@ -4189,11 +4109,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         TrimThumbnailCache();
     }
 
-    private void TrimThumbnailCache()
+    private void TrimThumbnailCache(int targetCount = MaxThumbnailCacheItems)
     {
         var checkedCount = 0;
         var maxCheckedCount = _thumbnailCacheOrder.Count;
-        while (_thumbnailCache.Count > MaxThumbnailCacheItems
+        while (_thumbnailCache.Count > Math.Max(0, targetCount)
             && _thumbnailCacheOrder.Count > 0
             && checkedCount < maxCheckedCount)
         {

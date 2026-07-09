@@ -4,58 +4,6 @@ namespace Pixora.Services;
 
 public sealed class ImageCatalog
 {
-    private static readonly string[] SupportedExtensions =
-    [
-        ".jpg",
-        ".jpeg",
-        ".jpe",
-        ".jfif",
-        ".png",
-        ".apng",
-        ".bmp",
-        ".gif",
-        ".webp",
-        ".tif",
-        ".tiff",
-        ".ico",
-        ".cur",
-        ".heic",
-        ".heif",
-        ".avif",
-        ".avifs",
-        ".jxr",
-        ".wdp",
-        ".hdp",
-        ".hdr",
-    ];
-
-    private static readonly string[] SupportedVideoExtensions =
-    [
-        ".mp4",
-        ".m4v",
-        ".mov",
-        ".avi",
-        ".mkv",
-        ".wmv",
-        ".webm",
-        ".mpeg",
-        ".mpg",
-        ".3gp",
-        ".3g2",
-        ".ts",
-        ".m2ts",
-        ".mts",
-    ];
-
-    private static readonly HashSet<string> SupportedExtensionSet =
-        new(SupportedExtensions, StringComparer.OrdinalIgnoreCase);
-
-    private static readonly HashSet<string> SupportedVideoExtensionSet =
-        new(SupportedVideoExtensions, StringComparer.OrdinalIgnoreCase);
-
-    private static readonly HashSet<string> AnimatedImageExtensionSet =
-        new([".gif", ".apng"], StringComparer.OrdinalIgnoreCase);
-
     private readonly WindowsLogicalStringComparer _windowsLogicalStringComparer = new();
     private List<string> _files = [];
 
@@ -80,25 +28,30 @@ public sealed class ImageCatalog
 
     public static bool IsSupportedStillImagePath(string path)
     {
-        return SupportedExtensionSet.Contains(Path.GetExtension(path));
+        return MediaFormatRegistry.IsSupportedStillImagePath(path);
     }
 
     public static bool IsSupportedVideoPath(string path)
     {
-        return SupportedVideoExtensionSet.Contains(Path.GetExtension(path));
+        return MediaFormatRegistry.IsSupportedVideoPath(path);
     }
 
     public static bool IsLikelyAnimatedImagePath(string path)
     {
-        return AnimatedImageExtensionSet.Contains(Path.GetExtension(path));
+        return MediaFormatRegistry.IsLikelyAnimatedImagePath(path);
     }
 
     public static bool IsSupportedMediaPath(string path)
     {
-        return IsSupportedStillImagePath(path) || IsSupportedVideoPath(path);
+        return MediaFormatRegistry.IsSupportedMediaPath(path);
     }
 
     public void LoadFromFile(string path)
+    {
+        LoadFromFile(path, CancellationToken.None);
+    }
+
+    public void LoadFromFile(string path, CancellationToken cancellationToken)
     {
         var fullPath = Path.GetFullPath(path);
         var directory = Path.GetDirectoryName(fullPath);
@@ -111,7 +64,8 @@ public sealed class ImageCatalog
             return;
         }
 
-        var files = SortPaths(Directory.EnumerateFiles(directory).Where(IsSupportedMediaPath));
+        var files = SortPaths(EnumerateSupportedMediaFiles(directory, cancellationToken));
+        cancellationToken.ThrowIfCancellationRequested();
 
         var index = files.FindIndex(p => string.Equals(p, fullPath, StringComparison.OrdinalIgnoreCase));
         if (index < 0)
@@ -138,8 +92,14 @@ public sealed class ImageCatalog
 
     public void LoadFromFolder(string folder)
     {
+        LoadFromFolder(folder, CancellationToken.None);
+    }
+
+    public void LoadFromFolder(string folder, CancellationToken cancellationToken)
+    {
         var fullFolder = Path.GetFullPath(folder);
-        _files = SortPaths(Directory.EnumerateFiles(fullFolder).Where(IsSupportedMediaPath));
+        _files = SortPaths(EnumerateSupportedMediaFiles(fullFolder, cancellationToken));
+        cancellationToken.ThrowIfCancellationRequested();
 
         Index = _files.Count > 0 ? 0 : -1;
         SourceFolder = fullFolder;
@@ -359,6 +319,18 @@ public sealed class ImageCatalog
         catch
         {
             return 0;
+        }
+    }
+
+    private static IEnumerable<string> EnumerateSupportedMediaFiles(string folder, CancellationToken cancellationToken)
+    {
+        foreach (var path in Directory.EnumerateFiles(folder))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (IsSupportedMediaPath(path))
+            {
+                yield return path;
+            }
         }
     }
 }

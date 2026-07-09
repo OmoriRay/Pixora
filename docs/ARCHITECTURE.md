@@ -41,7 +41,7 @@ docs
 - `src\Pixora`：WPF 应用主体。
 - `src\Pixora\Controls`：自定义渲染控件，目前核心是 `BitmapViewer`。
 - `src\Pixora\Models`：轻量模型和枚举，例如图片文档、动画帧、快捷键动作。
-- `src\Pixora\Services`：图片加载、目录索引、缓存、设置、快捷键、文件关联、收藏、压缩、错误日志等可测试逻辑。
+- `src\Pixora\Services`：图片加载、目录索引、目录后台加载、格式注册、缓存策略、设置、快捷键、文件关联、收藏、压缩、错误日志等可测试逻辑。
 - `tests\Pixora.SmokeTests`：控制台式 smoke test，不是完整 UI 自动化，但覆盖了核心服务和渲染回归。
 - `test-images`：内置小样本，测试启动时会生成部分动态图、HDR、AVIF 或输出文件。
 - `tools`：辅助脚本。`SetUserFTA.exe` 是可选外部工具，不能进仓库。
@@ -107,18 +107,18 @@ docs
 
 `OpenPathAsync` 是打开入口。当前策略大致如下：
 
-- 如果传入目录，`ImageCatalog.LoadFromFolder` 枚举该目录里的支持媒体，排序后打开第一项。
+- 如果传入目录，`MediaCatalogLoader` 会在后台枚举该目录里的支持媒体，支持取消，排序后打开第一项。
 - 如果传入文件，先用 `ImageCatalog.LoadSingleFile` 建一个只包含当前文件的占位目录，立即加载当前图。
-- 随后 `StartCatalogCompletion` 在后台用 `ImageCatalog.LoadFromFile` 扫描同目录并排序。
+- 随后 `StartCatalogCompletion` 通过 `MediaCatalogLoader` 在后台扫描同目录并排序。
 - 后台扫描完成后，如果用户仍停留在同一张图，并且当前目录仍是单文件占位，则用完整目录替换占位目录。
 
 这个设计是为了改善“在很大文件夹中双击某一张图”的启动体验。后续优化大目录性能时，不要退回到必须先完整扫描目录才能显示图片的流程。
 
-`ImageCatalog` 只枚举当前目录，不递归。批量删除和批量压缩才会根据用户选项涉及子目录。
+`MediaCatalogLoader` 负责把目录枚举移出 UI 线程并传递取消令牌；`ImageCatalog` 只枚举当前目录，不递归。批量删除和批量压缩才会根据用户选项涉及子目录。
 
 ## 媒体格式
 
-`ImageCatalog` 负责判断哪些路径会进入浏览列表。
+`MediaFormatRegistry` 集中维护静态图片、视频和轻量动图判断的扩展名；`ImageCatalog` 与 `FileAssociationService` 都从这里读取，避免出现格式清单漂移。
 
 静态/图片扩展名包括：
 
@@ -137,7 +137,7 @@ docs
 - `ImageCatalog.IsSupportedMediaPath` 决定目录里是否出现该文件。
 - `ImageCatalog.IsSupportedStillImagePath` 只看扩展名，不代表一定能成功解码。
 - `ImageCatalog.IsLikelyAnimatedImagePath` 当前只把 `.gif` 和 `.apng` 当作轻量统计里的动图。
-- 新增格式时通常要同步 `FileAssociationService`，否则能浏览但无法正确注册打开方式。
+- 新增格式时更新 `MediaFormatRegistry`，文件关联会自动同步静态图片扩展名。
 
 ## 图片加载
 
@@ -190,16 +190,17 @@ docs
 - `ImageCache`：完整静态图片文档内存缓存，按估算解码字节数做 LRU，动图不会进入该缓存。
 - `BitmapSourceMemoryCache`：显示预览内存缓存，带文件长度和修改时间校验，避免文件变化后使用旧预览。
 - `MainWindow` 内的 `_thumbnailCache`：缩略图内存缓存，最大条目数由 `MaxThumbnailCacheItems` 控制。
-- `ThumbnailDiskCache`：可选缩略图磁盘缓存，位于 `%LOCALAPPDATA%\Pixora\thumbnail-cache`。
+- `ThumbnailImageLoader`：缩略图解码协调，优先走 WIC，必要时回退完整解码或视频封面，并对接磁盘缓存。
+- `ThumbnailDiskCache`：可选缩略图磁盘缓存，位于 `%LOCALAPPDATA%\Pixora\thumbnail-cache`，按最近访问时间自动淘汰。
 
 设置里可以调整：
 
 - 主图缓存大小。
 - 显示预览缓存大小。
 - 低内存保护。
-- 是否启用缩略图磁盘缓存。
+- 是否启用缩略图磁盘缓存和其容量上限。
 
-已知限制：缩略图磁盘缓存目前没有自动容量清理。用户需要清理时可删除 `%LOCALAPPDATA%\Pixora\thumbnail-cache`。
+`MemoryCacheCoordinator` 统一主图与显示预览缓存的运行期预算；内存压力达到 GC 高内存阈值的 90% 时，会降低后台加载并收缩两级缓存，同时只保留当前活跃范围的缩略图内存缓存。
 
 ## 设置持久化
 
@@ -224,7 +225,7 @@ docs
 - 空闲时是否加载完整分辨率。
 - 主图缓存和显示预览缓存大小。
 - 低内存保护。
-- 缩略图磁盘缓存。
+- 缩略图磁盘缓存和容量上限。
 - 快捷键设置窗口大小、位置和最大化状态。
 
 `ShortcutSettings` 写入：
@@ -424,10 +425,15 @@ dotnet run --project tests\Pixora.SmokeTests\Pixora.SmokeTests.csproj
 
 - 自然排序和多种排序模式。
 - 打开单文件占位与完整目录替换。
+- 目录后台加载取消。
 - 常见图片、GIF、HDR、AVIF 解码。
 - 大帧数 GIF 的安全加载。
 - 视频路径识别和视频封面 fallback。
 - 图片缓存和预览缓存行为。
+- 缩略图磁盘缓存读取、容量清理和手动清理。
+- `ThumbnailImageLoader` 的尺寸约束与磁盘缓存复用。
+- 媒体格式注册与文件关联格式一致性。
+- 内存缓存协调和滚动日志文件。
 - 收藏持久化。
 - 快捷键默认值和保存。
 - 设置持久化。
@@ -463,8 +469,7 @@ dotnet run --project tests\Pixora.SmokeTests\Pixora.SmokeTests.csproj -- --media
 
 ## 已知技术债
 
-- `MainWindow.xaml.cs` 很大，长期可以按“目录打开/加载、缩略图、编辑、文件操作、UI 状态”拆分，但短期不要做无业务收益的大重构。
-- 缩略图磁盘缓存无容量清理策略。
+- `MainWindow.xaml.cs` 仍较大，但目录后台加载、媒体格式判断和缓存预算已提取到独立服务；后续可继续拆分缩略图、编辑和文件操作的 UI 协调代码。
 - 默认应用自动设置受 Windows 保护限制，不能保证静默成功。
 - 旧名称 `Pic-O` 和 `PureView` 仍需要在数据迁移逻辑中保留，避免老用户设置丢失。
 - 当前测试偏服务和渲染 smoke test，缺少完整 UI 自动化。
