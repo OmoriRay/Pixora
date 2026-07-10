@@ -9,6 +9,7 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         AppInfo.EnsureLocalDataMigrated();
+        FileAssociationService.TryRepairRegistrationForCurrentExecutable();
 
         base.OnStartup(e);
         DispatcherUnhandledException += App_DispatcherUnhandledException;

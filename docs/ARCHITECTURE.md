@@ -246,6 +246,8 @@ docs
 %LOCALAPPDATA%\Pixora\batch-compression-settings.json
 ```
 
+它同时保存批量压缩参数、上次输入/输出位置，以及批量压缩窗口的大小、位置和最大化状态。
+
 新增设置时要考虑三个问题：
 
 - 新用户默认值。
@@ -392,6 +394,7 @@ Services\BatchCompressionSettings.cs
 - 写入 `HKCU\Software\RegisteredApplications`。
 - 把 `Pixora.Image` 加到各扩展名的 `OpenWithProgids`。
 - 调用 `SHChangeNotify` 通知 Shell 更新关联。
+- 启动时只在已有 `Pixora.Image` 打开命令指向旧位置时重写为当前 `Pixora.exe`；不会创建新的关联，也不会修改 Windows 的默认应用选择。
 
 默认应用限制：
 

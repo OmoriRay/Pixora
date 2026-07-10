@@ -21,6 +21,16 @@ public sealed class BatchCompressionSettings
 
     public bool OverwriteExisting { get; set; }
 
+    public double BatchCompressWindowWidth { get; set; }
+
+    public double BatchCompressWindowHeight { get; set; }
+
+    public double? BatchCompressWindowLeft { get; set; }
+
+    public double? BatchCompressWindowTop { get; set; }
+
+    public bool BatchCompressWindowMaximized { get; set; }
+
     public static BatchCompressionSettings Load()
     {
         return Load(SettingsPath);
@@ -77,10 +87,24 @@ public sealed class BatchCompressionSettings
         MaxHeight = Math.Max(0, MaxHeight);
         LastInputPath = string.IsNullOrWhiteSpace(LastInputPath) ? null : LastInputPath.Trim();
         LastOutputFolder = string.IsNullOrWhiteSpace(LastOutputFolder) ? null : LastOutputFolder.Trim();
+        BatchCompressWindowWidth = NormalizeWindowDimension(BatchCompressWindowWidth);
+        BatchCompressWindowHeight = NormalizeWindowDimension(BatchCompressWindowHeight);
+        BatchCompressWindowLeft = NormalizeWindowCoordinate(BatchCompressWindowLeft);
+        BatchCompressWindowTop = NormalizeWindowCoordinate(BatchCompressWindowTop);
     }
 
     private static string SettingsPath =>
         Path.Combine(
             AppInfo.LocalDataFolder,
             "batch-compression-settings.json");
+
+    private static double NormalizeWindowDimension(double value)
+    {
+        return double.IsFinite(value) && value > 0 ? value : 0;
+    }
+
+    private static double? NormalizeWindowCoordinate(double? value)
+    {
+        return value is double coordinate && double.IsFinite(coordinate) ? coordinate : null;
+    }
 }

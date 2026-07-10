@@ -28,6 +28,33 @@ public static class FileAssociationService
     public static string ExpectedExternalDefaultToolPath =>
         Path.Combine(AppContext.BaseDirectory, "tools", SetUserFtaFileName);
 
+    public static bool TryRepairRegistrationForCurrentExecutable()
+    {
+        try
+        {
+            var executablePath = Environment.ProcessPath;
+            if (string.IsNullOrWhiteSpace(executablePath) || !File.Exists(executablePath))
+            {
+                return false;
+            }
+
+            var registeredCommand = GetRegisteredOpenCommand();
+            if (string.IsNullOrWhiteSpace(registeredCommand)
+                || !NeedsRegistrationRepair(registeredCommand, executablePath))
+            {
+                return false;
+            }
+
+            Register(executablePath);
+            return true;
+        }
+        catch
+        {
+            // A stale association must never prevent the application itself from starting.
+            return false;
+        }
+    }
+
     public static void Register(string executablePath)
     {
         if (string.IsNullOrWhiteSpace(executablePath) || !File.Exists(executablePath))
@@ -44,12 +71,12 @@ public static class FileAssociationService
 
         using (var commandKey = Registry.CurrentUser.CreateSubKey($@"Software\Classes\{ProgId}\shell\open\command"))
         {
-            commandKey?.SetValue(null, $"\"{executablePath}\" \"%1\"");
+            commandKey?.SetValue(null, CreateOpenCommand(executablePath));
         }
 
         using (var applicationsCommandKey = Registry.CurrentUser.CreateSubKey($@"Software\Classes\Applications\{Path.GetFileName(executablePath)}\shell\open\command"))
         {
-            applicationsCommandKey?.SetValue(null, $"\"{executablePath}\" \"%1\"");
+            applicationsCommandKey?.SetValue(null, CreateOpenCommand(executablePath));
         }
 
         using (var capabilitiesKey = Registry.CurrentUser.CreateSubKey(CapabilitiesPath))
@@ -241,6 +268,25 @@ public static class FileAssociationService
 
         process.WaitForExit();
         return (process.ExitCode, output.ToString().Trim());
+    }
+
+    private static string? GetRegisteredOpenCommand()
+    {
+        using var commandKey = Registry.CurrentUser.OpenSubKey($@"Software\Classes\{ProgId}\shell\open\command");
+        return commandKey?.GetValue(null) as string;
+    }
+
+    private static bool NeedsRegistrationRepair(string registeredCommand, string executablePath)
+    {
+        return !string.Equals(
+            registeredCommand.Trim(),
+            CreateOpenCommand(executablePath),
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string CreateOpenCommand(string executablePath)
+    {
+        return $"\"{executablePath}\" \"%1\"";
     }
 
     private static string GetFileTypeIconValue(string executablePath)

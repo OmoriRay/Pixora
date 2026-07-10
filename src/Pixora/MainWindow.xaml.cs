@@ -135,6 +135,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private int _thumbnailGeneration;
     private int _catalogCompletionGeneration;
     private int _folderLoadGeneration;
+    private int _scheduledFitGeneration;
     private int _thumbnailVisibleStartIndex;
     private int _thumbnailVisibleEndIndex = -1;
     private int _rotationDegrees;
@@ -534,6 +535,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             if (_isFitMode)
             {
                 FitToWindow();
+                ScheduleFitToWindowAfterLayout(document);
             }
             else
             {
@@ -999,6 +1001,34 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         SetTransform(transform.Scale, transform.OffsetX, transform.OffsetY);
     }
 
+    private void ScheduleFitToWindowAfterLayout(ImageDocument? expectedDocument = null)
+    {
+        if (!_isFitMode || _isClosing)
+        {
+            return;
+        }
+
+        var document = expectedDocument ?? _currentDocument;
+        if (document is null)
+        {
+            return;
+        }
+
+        var generation = ++_scheduledFitGeneration;
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (generation != _scheduledFitGeneration
+                || !_isFitMode
+                || _isClosing
+                || !ReferenceEquals(_currentDocument, document))
+            {
+                return;
+            }
+
+            FitToWindow();
+        }), DispatcherPriority.ContextIdle);
+    }
+
     private double GetDefaultFitMaxScale(int displayPixelWidth, int displayPixelHeight)
     {
         if (_currentDocument is null || displayPixelWidth <= 0 || displayPixelHeight <= 0)
@@ -1244,6 +1274,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             if (fitMode)
             {
                 FitToWindow();
+                ScheduleFitToWindowAfterLayout(document);
             }
 
             LoadingPanel.Visibility = Visibility.Collapsed;
@@ -1994,6 +2025,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (_isFitMode)
         {
             FitToWindow();
+            ScheduleFitToWindowAfterLayout();
         }
     }
 
@@ -2001,7 +2033,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (_isFitMode)
         {
-            Dispatcher.BeginInvoke(new Action(FitToWindow), DispatcherPriority.Loaded);
+            ScheduleFitToWindowAfterLayout();
         }
 
         UpdateCommands();

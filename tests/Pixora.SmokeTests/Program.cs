@@ -53,6 +53,7 @@ internal static class Program
         AssertAvifLoads(avifImage);
         AssertWebImageExtensions();
         AssertMediaFormatRegistry();
+        AssertFileAssociationMoveRepair();
         AssertMediaCatalogLoaderCancellation(imageFolder);
         AssertVideoMediaSupport(root);
         AssertCatalogSortModes(root);
@@ -293,6 +294,27 @@ internal static class Program
         Assert(MediaFormatRegistry.SupportedVideoExtensions.Contains(".mp4"), "Central format registry should include MP4.");
         Assert(MediaFormatRegistry.IsSupportedMediaPath("sample.MP4"), "Central format registry should handle extension case-insensitively.");
         Assert(!MediaFormatRegistry.IsSupportedMediaPath("sample.svg"), "Unsupported formats should stay out of the central registry.");
+    }
+
+    private static void AssertFileAssociationMoveRepair()
+    {
+        var method = typeof(FileAssociationService).GetMethod(
+            "NeedsRegistrationRepair",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        if (method is null)
+        {
+            throw new InvalidOperationException("File association move repair check should exist.");
+        }
+
+        const string currentExecutablePath = @"C:\Apps\Pixora\Pixora.exe";
+        var currentCommand = $"\"{currentExecutablePath}\" \"%1\"";
+        var staleCommand = "\"D:\\OldPixora\\Pixora.exe\" \"%1\"";
+
+        var currentNeedsRepair = (bool)method.Invoke(null, [currentCommand, currentExecutablePath])!;
+        var staleNeedsRepair = (bool)method.Invoke(null, [staleCommand, currentExecutablePath])!;
+
+        Assert(!currentNeedsRepair, "The current Pixora command should not be rewritten on startup.");
+        Assert(staleNeedsRepair, "A moved Pixora executable should refresh its stale command path.");
     }
 
     private static void AssertMediaCatalogLoaderCancellation(string imageFolder)
@@ -724,6 +746,11 @@ internal static class Program
             MaxHeight = 720,
             IncludeSubfolders = true,
             OverwriteExisting = true,
+            BatchCompressWindowWidth = 1120,
+            BatchCompressWindowHeight = 760,
+            BatchCompressWindowLeft = 120,
+            BatchCompressWindowTop = 80,
+            BatchCompressWindowMaximized = true,
         };
 
         settings.Save(settingsPath);
@@ -736,6 +763,10 @@ internal static class Program
         Assert(loaded.MaxHeight == 720, "Batch compression settings should persist max height.");
         Assert(loaded.IncludeSubfolders, "Batch compression settings should persist recursive scan preference.");
         Assert(loaded.OverwriteExisting, "Batch compression settings should persist overwrite preference.");
+        Assert(loaded.BatchCompressWindowWidth == 1120, "Batch compression settings should persist window width.");
+        Assert(loaded.BatchCompressWindowHeight == 760, "Batch compression settings should persist window height.");
+        Assert(loaded.BatchCompressWindowLeft == 120 && loaded.BatchCompressWindowTop == 80, "Batch compression settings should persist window position.");
+        Assert(loaded.BatchCompressWindowMaximized, "Batch compression settings should persist maximized state.");
     }
 
     private static void EnsureAnimatedGif(string path)

@@ -22,6 +22,7 @@ public partial class BatchCompressWindow : Window
     public BatchCompressWindow(string? initialInputPath = null)
     {
         InitializeComponent();
+        ApplySavedWindowPlacement();
         ApplySavedSettings(initialInputPath);
         UpdateQualityState();
         UpdateOpenButtons();
@@ -275,6 +276,7 @@ public partial class BatchCompressWindow : Window
         }
 
         _runCts?.Cancel();
+        SaveCurrentSettings();
     }
 
     private void UpdateProgress(BatchCompressionProgress progress)
@@ -474,12 +476,85 @@ public partial class BatchCompressWindow : Window
             _settings.MaxHeight = options?.MaxHeight ?? ReadNonNegative(MaxHeightText.Text, _settings.MaxHeight);
             _settings.IncludeSubfolders = options?.IncludeSubfolders ?? IncludeSubfoldersCheckBox.IsChecked == true;
             _settings.OverwriteExisting = options?.OverwriteExisting ?? OverwriteExistingCheckBox.IsChecked == true;
+            SaveWindowPlacement();
             _settings.Save();
         }
         catch (Exception ex)
         {
             ErrorLog.WriteException("SaveBatchCompressionSettings", "保存批量压缩设置失败。", ex);
         }
+    }
+
+    private void ApplySavedWindowPlacement()
+    {
+        if (_settings.BatchCompressWindowWidth >= MinWidth)
+        {
+            Width = _settings.BatchCompressWindowWidth;
+        }
+
+        if (_settings.BatchCompressWindowHeight >= MinHeight)
+        {
+            Height = _settings.BatchCompressWindowHeight;
+        }
+
+        var savedLeft = _settings.BatchCompressWindowLeft;
+        var savedTop = _settings.BatchCompressWindowTop;
+        if (savedLeft.HasValue
+            && savedTop.HasValue
+            && IsRectVisibleOnVirtualScreen(savedLeft.Value, savedTop.Value, Width, Height))
+        {
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            Left = savedLeft.Value;
+            Top = savedTop.Value;
+        }
+
+        if (_settings.BatchCompressWindowMaximized)
+        {
+            WindowState = WindowState.Maximized;
+        }
+    }
+
+    private void SaveWindowPlacement()
+    {
+        _settings.BatchCompressWindowMaximized = WindowState == WindowState.Maximized;
+        var bounds = RestoreBounds;
+        if (bounds.Width >= MinWidth)
+        {
+            _settings.BatchCompressWindowWidth = bounds.Width;
+        }
+
+        if (bounds.Height >= MinHeight)
+        {
+            _settings.BatchCompressWindowHeight = bounds.Height;
+        }
+
+        if (IsRectVisibleOnVirtualScreen(bounds.Left, bounds.Top, bounds.Width, bounds.Height))
+        {
+            _settings.BatchCompressWindowLeft = bounds.Left;
+            _settings.BatchCompressWindowTop = bounds.Top;
+        }
+    }
+
+    private static bool IsRectVisibleOnVirtualScreen(double left, double top, double width, double height)
+    {
+        if (double.IsNaN(left)
+            || double.IsNaN(top)
+            || width <= 0
+            || height <= 0)
+        {
+            return false;
+        }
+
+        var right = left + width;
+        var bottom = top + height;
+        var screenLeft = SystemParameters.VirtualScreenLeft;
+        var screenTop = SystemParameters.VirtualScreenTop;
+        var screenRight = screenLeft + SystemParameters.VirtualScreenWidth;
+        var screenBottom = screenTop + SystemParameters.VirtualScreenHeight;
+        return right > screenLeft
+            && left < screenRight
+            && bottom > screenTop
+            && top < screenBottom;
     }
 
     private void UpdateOpenButtons()
