@@ -41,6 +41,7 @@ internal static class Program
 
         Assert(catalog.MoveTo(firstImage), "Catalog should move to an existing image path.");
         Assert(Path.GetFileName(catalog.CurrentPath) == "1.png", "MoveTo should select the requested image.");
+        AssertImageCatalogAddsSavedFileKeepingCurrent(root);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var document = ImageLoader.Load(firstImage, cts.Token);
@@ -130,6 +131,31 @@ internal static class Program
         }
 
         return options;
+    }
+
+    private static void AssertImageCatalogAddsSavedFileKeepingCurrent(string root)
+    {
+        var folder = Path.Combine(root, "test-output", "catalog-saved-file");
+        if (Directory.Exists(folder))
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+
+        Directory.CreateDirectory(folder);
+        var currentPath = Path.Combine(folder, "1.png");
+        var existingPath = Path.Combine(folder, "3.png");
+        var savedPath = Path.Combine(folder, "2_压缩.jpg");
+        File.Copy(Path.Combine(root, "test-images", "1.png"), currentPath);
+        File.Copy(Path.Combine(root, "test-images", "2.png"), existingPath);
+
+        var catalog = new ImageCatalog();
+        catalog.LoadFromFolder(folder);
+        Assert(catalog.MoveTo(currentPath), "Catalog should select the source image before saving a sibling file.");
+
+        File.Copy(Path.Combine(root, "test-images", "2.png"), savedPath);
+        Assert(catalog.AddOrUpdateExistingMediaPath(savedPath), "Catalog should add a supported saved image from the current folder.");
+        Assert(catalog.Count == 3, "Catalog should show the saved image immediately.");
+        Assert(string.Equals(catalog.CurrentPath, currentPath, StringComparison.OrdinalIgnoreCase), "Adding a saved image should keep the current image selected.");
     }
 
     private static string RequireOptionValue(string[] args, ref int index, string option)

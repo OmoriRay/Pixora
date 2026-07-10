@@ -213,6 +213,37 @@ public sealed class ImageCatalog
         return true;
     }
 
+    public bool AddOrUpdateExistingMediaPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        var fullPath = Path.GetFullPath(path);
+        if (!File.Exists(fullPath) || !IsSupportedMediaPath(fullPath))
+        {
+            return false;
+        }
+
+        var currentPath = CurrentPath;
+        if (!_files.Contains(fullPath, StringComparer.OrdinalIgnoreCase))
+        {
+            _files.Add(fullPath);
+        }
+
+        _files = SortPaths(_files);
+        if (currentPath is null)
+        {
+            Index = _files.FindIndex(p => string.Equals(p, fullPath, StringComparison.OrdinalIgnoreCase));
+            return true;
+        }
+
+        var currentIndex = _files.FindIndex(p => string.Equals(p, currentPath, StringComparison.OrdinalIgnoreCase));
+        Index = currentIndex >= 0 ? currentIndex : (_files.Count > 0 ? 0 : -1);
+        return true;
+    }
+
     public IReadOnlyList<string> GetNeighborPaths(int radius)
     {
         if (_files.Count <= 1 || Index < 0 || Index >= _files.Count)

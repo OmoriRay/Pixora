@@ -3375,6 +3375,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         try
         {
+            if (_viewerSettings.SavedFileOpenBehavior != SavedFileOpenBehavior.CurrentWindow)
+            {
+                await RefreshCurrentCatalogForSavedFileAsync(path);
+            }
+
             switch (_viewerSettings.SavedFileOpenBehavior)
             {
                 case SavedFileOpenBehavior.CurrentWindow:
@@ -3392,6 +3397,37 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         catch (Exception ex)
         {
             ShowUserError($"文件已保存，但打开保存文件失败：\n{FriendlyException(ex)}", ex);
+        }
+    }
+
+    private async Task RefreshCurrentCatalogForSavedFileAsync(string path)
+    {
+        if (_isFavoritesView
+            || string.IsNullOrWhiteSpace(_catalog.SourceFolder)
+            || string.IsNullOrWhiteSpace(_catalog.CurrentPath))
+        {
+            return;
+        }
+
+        var fullPath = Path.GetFullPath(path);
+        var outputFolder = Path.GetDirectoryName(fullPath);
+        if (!string.Equals(outputFolder, _catalog.SourceFolder, StringComparison.OrdinalIgnoreCase)
+            || !_catalog.AddOrUpdateExistingMediaPath(fullPath))
+        {
+            return;
+        }
+
+        var shouldReloadCurrent = string.Equals(_catalog.CurrentPath, fullPath, StringComparison.OrdinalIgnoreCase);
+        RefreshThumbnailItems();
+        StartDirectoryStatsUpdate();
+        UpdateInfoPanel();
+        UpdateWindowTitle(_catalog.CurrentPath);
+        UpdateCommands();
+
+        if (shouldReloadCurrent)
+        {
+            EnterDefaultFitMode();
+            await LoadCurrentAsync();
         }
     }
 
