@@ -47,6 +47,8 @@ public partial class ShortcutSettingsWindow : Window
         StartMainWindowMaximizedCheckBox.IsChecked = viewerSettings.StartMainWindowMaximized;
         ShowAnimationControlsCheckBox.IsChecked = viewerSettings.ShowAnimationControls;
         ShowOperationNotificationsCheckBox.IsChecked = viewerSettings.ShowOperationNotifications;
+        ShowZoomIndicatorCheckBox.IsChecked = viewerSettings.ShowZoomIndicator;
+        ZoomIndicatorDisplayModeComboBox.SelectedValue = viewerSettings.ZoomIndicatorDisplayMode.ToString();
         LoadFullResolutionWhenIdleCheckBox.IsChecked = viewerSettings.LoadFullResolutionWhenIdle;
         SelectComboBoxValue(MainImageCacheComboBox, viewerSettings.MainImageCacheMegabytes, ViewerSettings.DefaultMainImageCacheMegabytes);
         SelectComboBoxValue(DisplayPreviewCacheComboBox, viewerSettings.DisplayPreviewCacheMegabytes, ViewerSettings.DefaultDisplayPreviewCacheMegabytes);
@@ -252,7 +254,7 @@ public partial class ShortcutSettingsWindow : Window
         SetSettingsSectionVisibility(
             InterfaceSettingsSection,
             query,
-            "界面 缩略图 单列 双列 搜索 序号 文件名 主窗口 最大化 统计 动图 操作提示 原图");
+            "界面 缩略图 单列 双列 搜索 序号 文件名 主窗口 最大化 统计 动图 操作提示 缩放 百分比 倍数 原图 安全预览");
         SetSettingsSectionVisibility(
             PerformanceSettingsSection,
             query,
@@ -514,6 +516,8 @@ public partial class ShortcutSettingsWindow : Window
             _viewerSettings.StartMainWindowMaximized = StartMainWindowMaximizedCheckBox.IsChecked == true;
             _viewerSettings.ShowAnimationControls = ShowAnimationControlsCheckBox.IsChecked == true;
             _viewerSettings.ShowOperationNotifications = ShowOperationNotificationsCheckBox.IsChecked == true;
+            _viewerSettings.ShowZoomIndicator = ShowZoomIndicatorCheckBox.IsChecked == true;
+            _viewerSettings.ZoomIndicatorDisplayMode = GetSelectedZoomIndicatorDisplayMode();
             _viewerSettings.LoadFullResolutionWhenIdle = LoadFullResolutionWhenIdleCheckBox.IsChecked == true;
             _viewerSettings.MainImageCacheMegabytes = GetSelectedMegabytes(MainImageCacheComboBox, ViewerSettings.DefaultMainImageCacheMegabytes);
             _viewerSettings.DisplayPreviewCacheMegabytes = GetSelectedMegabytes(DisplayPreviewCacheComboBox, ViewerSettings.DefaultDisplayPreviewCacheMegabytes);
@@ -936,6 +940,14 @@ public partial class ShortcutSettingsWindow : Window
         return Enum.TryParse<QuickSearchMode>(selectedValue, out var mode)
             ? mode
             : QuickSearchMode.Index;
+    }
+
+    private ZoomIndicatorDisplayMode GetSelectedZoomIndicatorDisplayMode()
+    {
+        var selectedValue = ZoomIndicatorDisplayModeComboBox.SelectedValue as string;
+        return Enum.TryParse<ZoomIndicatorDisplayMode>(selectedValue, out var mode)
+            ? mode
+            : ZoomIndicatorDisplayMode.Percentage;
     }
 
     private static string GetAppVersion()

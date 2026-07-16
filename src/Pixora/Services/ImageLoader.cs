@@ -10,7 +10,6 @@ namespace Pixora.Services;
 
 public static class ImageLoader
 {
-    private const long MaxPixelCount = 120_000_000;
     private const long MaxHdrPixelCount = 40_000_000;
     private const int MaxAnimationFrameCount = 2_000;
     private const long MaxAnimationPixelFrames = 300_000_000;
@@ -41,20 +40,41 @@ public static class ImageLoader
         }
     }
 
-    public static BitmapSource LoadPreview(string path, int maxWidth, int maxHeight, CancellationToken cancellationToken)
+    public static BitmapSource LoadPreview(
+        string path,
+        int maxWidth,
+        int maxHeight,
+        CancellationToken cancellationToken,
+        int largeImageMaximumSide = 0)
     {
-        return LoadPreviewDocument(path, maxWidth, maxHeight, cancellationToken).Bitmap;
+        return LoadPreviewDocument(path, maxWidth, maxHeight, cancellationToken, largeImageMaximumSide).Bitmap;
     }
 
-    public static ImageDocument LoadPreviewDocument(string path, int maxWidth, int maxHeight, CancellationToken cancellationToken)
+    public static ImageDocument LoadPreviewDocument(
+        string path,
+        int maxWidth,
+        int maxHeight,
+        CancellationToken cancellationToken,
+        int largeImageMaximumSide = 0)
     {
         try
         {
-            return LoadPreviewDocumentWithWic(path, maxWidth, maxHeight, cancellationToken);
+            return LoadPreviewDocumentWithWic(
+                path,
+                maxWidth,
+                maxHeight,
+                cancellationToken,
+                largeImageMaximumSide);
         }
         catch (Exception ex) when (CanFallbackToMagick(ex))
         {
-            return LoadPreviewDocumentWithMagick(path, maxWidth, maxHeight, cancellationToken, ex);
+            return LoadPreviewDocumentWithMagick(
+                path,
+                maxWidth,
+                maxHeight,
+                cancellationToken,
+                ex,
+                largeImageMaximumSide);
         }
     }
 
@@ -70,7 +90,56 @@ public static class ImageLoader
         }
     }
 
-    private static ImageDocument LoadPreviewDocumentWithWic(string path, int maxWidth, int maxHeight, CancellationToken cancellationToken)
+    public static bool RequiresSafetyPreview(string path, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!File.Exists(path))
+        {
+            throw new FileNotFoundException("Image file does not exist.", path);
+        }
+
+        try
+        {
+            using var stream = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete);
+            var decoder = BitmapDecoder.Create(
+                stream,
+                BitmapCreateOptions.PreservePixelFormat | BitmapCreateOptions.IgnoreColorProfile,
+                BitmapCacheOption.None);
+            if (decoder.Frames.Count == 0)
+            {
+                throw new InvalidDataException("Image has no displayable frames.");
+            }
+
+            var frame = decoder.Frames[0];
+            LargeImagePolicy.ValidateSafetyPreviewSource(frame.PixelWidth, frame.PixelHeight);
+            return LargeImagePolicy.RequiresSafetyPreview(frame.PixelWidth, frame.PixelHeight);
+        }
+        catch (Exception ex) when (CanFallbackToMagick(ex))
+        {
+            var imageInfo = new MagickImageInfo(path);
+            var (width, height) = GetMagickOrientedDimensions(imageInfo);
+            LargeImagePolicy.ValidateSourceDimensions(width, height);
+            if (IsTiffContainer(path, imageInfo.Format)
+                && LargeImagePolicy.RequiresSafetyPreview(width, height))
+            {
+                return true;
+            }
+
+            LargeImagePolicy.ValidateSafetyPreviewSource(width, height);
+            return LargeImagePolicy.RequiresSafetyPreview(width, height);
+        }
+    }
+
+    private static ImageDocument LoadPreviewDocumentWithWic(
+        string path,
+        int maxWidth,
+        int maxHeight,
+        CancellationToken cancellationToken,
+        int largeImageMaximumSide)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -101,23 +170,23 @@ public static class ImageLoader
         }
 
         var frame = decoder.Frames[0];
-        var pixelCount = (long)frame.PixelWidth * frame.PixelHeight;
-        if (pixelCount <= 0)
+        LargeImagePolicy.ValidateSafetyPreviewSource(frame.PixelWidth, frame.PixelHeight);
+        var isLargeImagePreview = LargeImagePolicy.RequiresSafetyPreview(frame.PixelWidth, frame.PixelHeight);
+        if (isLargeImagePreview && !SupportsNativePreviewScaling(decoder))
         {
-            throw new InvalidDataException("Image dimensions are invalid.");
-        }
-
-        if (pixelCount > MaxPixelCount)
-        {
-            throw new InvalidDataException($"Image dimensions are too large; limit is {MaxPixelCount:N0} pixels.");
+            throw new InvalidDataException(
+                "该格式的 WIC 解码器不能在解码阶段缩小超大图片；目前仅支持 JPEG 和 PNG 超大图安全预览。");
         }
 
         var orientation = ReadExifOrientation(frame);
-        var widthRatio = maxWidth / Math.Max(1.0, frame.PixelWidth);
-        var heightRatio = maxHeight / Math.Max(1.0, frame.PixelHeight);
-        var scale = Math.Min(1.0, Math.Min(widthRatio, heightRatio));
-        var decodeWidth = Math.Max(1, (int)Math.Round(frame.PixelWidth * scale));
-        var decodeHeight = Math.Max(1, (int)Math.Round(frame.PixelHeight * scale));
+        var (decodeWidth, decodeHeight) = LargeImagePolicy.CalculatePreviewDecodeSize(
+            frame.PixelWidth,
+            frame.PixelHeight,
+            maxWidth,
+            maxHeight,
+            largeImageMaximumSide);
+        var widthRatio = decodeWidth / Math.Max(1.0, frame.PixelWidth);
+        var heightRatio = decodeHeight / Math.Max(1.0, frame.PixelHeight);
 
         cancellationToken.ThrowIfCancellationRequested();
         using var stream = new FileStream(
@@ -126,21 +195,31 @@ public static class ImageLoader
             FileAccess.Read,
             FileShare.ReadWrite | FileShare.Delete);
 
-        var bitmap = new BitmapImage();
-        bitmap.BeginInit();
-        bitmap.CacheOption = BitmapCacheOption.OnLoad;
-        bitmap.CreateOptions = BitmapCreateOptions.PreservePixelFormat | BitmapCreateOptions.IgnoreColorProfile;
-        if (widthRatio <= heightRatio)
+        BitmapImage bitmap;
+        try
         {
-            bitmap.DecodePixelWidth = decodeWidth;
-        }
-        else
-        {
-            bitmap.DecodePixelHeight = decodeHeight;
-        }
+            bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.CreateOptions = BitmapCreateOptions.PreservePixelFormat | BitmapCreateOptions.IgnoreColorProfile;
+            if (widthRatio <= heightRatio)
+            {
+                bitmap.DecodePixelWidth = decodeWidth;
+            }
+            else
+            {
+                bitmap.DecodePixelHeight = decodeHeight;
+            }
 
-        bitmap.StreamSource = stream;
-        bitmap.EndInit();
+            bitmap.StreamSource = stream;
+            bitmap.EndInit();
+        }
+        catch (Exception ex) when (isLargeImagePreview && CanFallbackToMagick(ex))
+        {
+            throw new InvalidDataException(
+                "该格式的超大图片无法在不完整解码的情况下生成安全预览。",
+                ex);
+        }
 
         cancellationToken.ThrowIfCancellationRequested();
         var preview = ApplyExifOrientation(bitmap, orientation);
@@ -159,7 +238,8 @@ public static class ImageLoader
             [],
             pixelWidth: orientedWidth,
             pixelHeight: orientedHeight,
-            isPreview: true);
+            isPreview: true,
+            isLargeImagePreview: isLargeImagePreview);
     }
 
     private static ImageDocument LoadPreviewDocumentWithMagick(
@@ -167,7 +247,8 @@ public static class ImageLoader
         int maxWidth,
         int maxHeight,
         CancellationToken cancellationToken,
-        Exception wicException)
+        Exception wicException,
+        int largeImageMaximumSide)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -177,32 +258,47 @@ public static class ImageLoader
             maxHeight = Math.Max(1, maxHeight);
 
             var fileInfo = new FileInfo(path);
+            var imageInfo = new MagickImageInfo(path);
+            var sourceFormat = imageInfo.Format;
+            var (metadataWidth, metadataHeight) = GetMagickOrientedDimensions(imageInfo);
+            LargeImagePolicy.ValidateSourceDimensions(metadataWidth, metadataHeight);
+            if (IsTiffContainer(path, sourceFormat)
+                && LargeImagePolicy.RequiresSafetyPreview(metadataWidth, metadataHeight))
+            {
+                return LoadTiffOverviewPreview(
+                    path,
+                    maxWidth,
+                    maxHeight,
+                    cancellationToken,
+                    largeImageMaximumSide,
+                    fileInfo,
+                    metadataWidth,
+                    metadataHeight);
+            }
+
+            LargeImagePolicy.ValidateSafetyPreviewSource(metadataWidth, metadataHeight);
+            if (LargeImagePolicy.RequiresSafetyPreview(metadataWidth, metadataHeight))
+            {
+                throw new InvalidDataException(
+                    "该格式需要 Magick.NET 完整解码，暂时无法安全生成超大图预览。");
+            }
+
             using var image = new MagickImage(path);
             cancellationToken.ThrowIfCancellationRequested();
 
-            var sourceFormat = image.Format;
             image.AutoOrient();
             var width = checked((int)image.Width);
             var height = checked((int)image.Height);
-            var pixelCount = (long)width * height;
-            if (pixelCount <= 0)
+            LargeImagePolicy.ValidateFullResolutionSource(width, height);
+            var (previewWidth, previewHeight) = LargeImagePolicy.CalculatePreviewDecodeSize(
+                width,
+                height,
+                maxWidth,
+                maxHeight,
+                largeImageMaximumSide);
+            if (previewWidth < width || previewHeight < height)
             {
-                throw new InvalidDataException("Image dimensions are invalid.");
-            }
-
-            if (pixelCount > MaxPixelCount)
-            {
-                throw new InvalidDataException($"Image dimensions are too large; limit is {MaxPixelCount:N0} pixels.");
-            }
-
-            var widthRatio = maxWidth / Math.Max(1.0, width);
-            var heightRatio = maxHeight / Math.Max(1.0, height);
-            var scale = Math.Min(1.0, Math.Min(widthRatio, heightRatio));
-            if (scale < 1.0)
-            {
-                var previewWidth = Math.Max(1, (uint)Math.Round(width * scale));
-                var previewHeight = Math.Max(1, (uint)Math.Round(height * scale));
-                image.Resize(previewWidth, previewHeight);
+                image.Resize((uint)previewWidth, (uint)previewHeight);
             }
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -246,6 +342,130 @@ public static class ImageLoader
         }
     }
 
+    private static ImageDocument LoadTiffOverviewPreview(
+        string path,
+        int maxWidth,
+        int maxHeight,
+        CancellationToken cancellationToken,
+        int largeImageMaximumSide,
+        FileInfo fileInfo,
+        int sourceWidth,
+        int sourceHeight)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var targetMaximumSide = largeImageMaximumSide > 0
+            ? Math.Clamp(
+                largeImageMaximumSide,
+                LargeImagePolicy.DefaultPreviewMaximumSide,
+                LargeImagePolicy.HighPerformancePreviewMaximumSide)
+            : Math.Max(maxWidth, maxHeight);
+        targetMaximumSide = Math.Max(1, targetMaximumSide);
+
+        var candidates = new List<TiffOverviewCandidate>();
+        var frameIndex = 0;
+        var tiffSettings = new MagickReadSettings
+        {
+            Format = MagickFormat.Tiff,
+        };
+        foreach (var frameInfo in MagickImageInfo.ReadCollection(fileInfo, tiffSettings))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var (frameWidth, frameHeight) = GetMagickOrientedDimensions(frameInfo);
+            candidates.Add(new TiffOverviewCandidate(frameIndex, frameWidth, frameHeight));
+            frameIndex++;
+        }
+
+        var selected = TiffOverviewSelector.SelectBest(
+            sourceWidth,
+            sourceHeight,
+            candidates,
+            targetMaximumSide);
+        if (!selected.HasValue)
+        {
+            throw new InvalidDataException(
+                "该 BigTIFF 超过完整解码上限，并且没有可安全读取的内置缩略图或金字塔层。");
+        }
+
+        var selectedFrame = selected.Value;
+        var readSettings = new MagickReadSettings
+        {
+            FrameIndex = checked((uint)selectedFrame.FrameIndex),
+            FrameCount = 1,
+        };
+
+        var decodePixelLimit = TiffOverviewSelector.GetDecodePixelLimit(targetMaximumSide);
+        if (selectedFrame.PixelCount > decodePixelLimit)
+        {
+            throw new InvalidDataException("BigTIFF 金字塔层尺寸超过当前性能档允许的安全解码预算。");
+        }
+
+        using var image = new MagickImage();
+        image.Progress += (_, args) => args.Cancel = cancellationToken.IsCancellationRequested;
+        try
+        {
+            using var imageStream = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete);
+            image.Read(imageStream, readSettings);
+        }
+        catch (MagickException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw new OperationCanceledException(cancellationToken);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        image.AutoOrient();
+        var width = checked((int)image.Width);
+        var height = checked((int)image.Height);
+        if (LargeImagePolicy.GetPixelCount(width, height) > decodePixelLimit)
+        {
+            throw new InvalidDataException("BigTIFF 实际解码层超过当前性能档允许的安全解码预算。");
+        }
+
+        var (previewWidth, previewHeight) = LargeImagePolicy.CalculatePreviewDecodeSize(
+            width,
+            height,
+            targetMaximumSide,
+            targetMaximumSide);
+        if (previewWidth < width || previewHeight < height)
+        {
+            image.Resize((uint)previewWidth, (uint)previewHeight);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var pngBytes = image.ToByteArray(MagickFormat.Png32);
+        using var stream = new MemoryStream(pngBytes);
+        var decoder = BitmapDecoder.Create(
+            stream,
+            BitmapCreateOptions.PreservePixelFormat | BitmapCreateOptions.IgnoreColorProfile,
+            BitmapCacheOption.OnLoad);
+        if (decoder.Frames.Count == 0)
+        {
+            throw new InvalidDataException("BigTIFF 金字塔层没有可显示的图像帧。");
+        }
+
+        var bitmap = decoder.Frames[0];
+        if (bitmap.CanFreeze)
+        {
+            bitmap.Freeze();
+        }
+
+        return new ImageDocument(
+            path,
+            bitmap,
+            $"{GetMagickFormatName(path, MagickFormat.Tiff)} / 金字塔安全预览 / Magick.NET",
+            fileInfo.Length,
+            fileInfo.LastWriteTime,
+            [],
+            pixelWidth: sourceWidth,
+            pixelHeight: sourceHeight,
+            isPreview: true,
+            isLargeImagePreview: true);
+    }
+
     private static ImageDocument CreatePreviewDocumentWithWicMetadata(string path, BitmapSource preview, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -274,16 +494,8 @@ public static class ImageLoader
         }
 
         var frame = decoder.Frames[0];
-        var pixelCount = (long)frame.PixelWidth * frame.PixelHeight;
-        if (pixelCount <= 0)
-        {
-            throw new InvalidDataException("Image dimensions are invalid.");
-        }
-
-        if (pixelCount > MaxPixelCount)
-        {
-            throw new InvalidDataException($"Image dimensions are too large; limit is {MaxPixelCount:N0} pixels.");
-        }
+        LargeImagePolicy.ValidateSafetyPreviewSource(frame.PixelWidth, frame.PixelHeight);
+        var isLargeImagePreview = LargeImagePolicy.RequiresSafetyPreview(frame.PixelWidth, frame.PixelHeight);
 
         var orientation = ReadExifOrientation(frame);
         var (orientedWidth, orientedHeight) = GetOrientedDimensions(frame.PixelWidth, frame.PixelHeight, orientation);
@@ -296,7 +508,8 @@ public static class ImageLoader
             [],
             pixelWidth: orientedWidth,
             pixelHeight: orientedHeight,
-            isPreview: true);
+            isPreview: true,
+            isLargeImagePreview: isLargeImagePreview);
     }
 
     private static ImageDocument CreatePreviewDocumentWithMagickMetadata(
@@ -310,22 +523,32 @@ public static class ImageLoader
         try
         {
             var fileInfo = new FileInfo(path);
-            using var image = new MagickImage(path);
-            var sourceFormat = image.Format;
-            image.AutoOrient();
-            var width = checked((int)image.Width);
-            var height = checked((int)image.Height);
+            var imageInfo = new MagickImageInfo(path);
+            var sourceFormat = imageInfo.Format;
+            var (width, height) = GetMagickOrientedDimensions(imageInfo);
+            LargeImagePolicy.ValidateSourceDimensions(width, height);
+            if (!IsTiffContainer(path, sourceFormat)
+                || !LargeImagePolicy.RequiresSafetyPreview(width, height))
+            {
+                LargeImagePolicy.ValidateSafetyPreviewSource(width, height);
+            }
+
+            var isLargeImagePreview = LargeImagePolicy.RequiresSafetyPreview(width, height);
+            var isTiffOverviewPreview = isLargeImagePreview && IsTiffContainer(path, sourceFormat);
 
             return new ImageDocument(
                 path,
                 preview,
-                $"{GetMagickFormatName(path, sourceFormat)} / Magick.NET",
+                isTiffOverviewPreview
+                    ? $"{GetMagickFormatName(path, MagickFormat.Tiff)} / 金字塔安全预览 / Magick.NET"
+                    : $"{GetMagickFormatName(path, sourceFormat)} / Magick.NET",
                 fileInfo.Length,
                 fileInfo.LastWriteTime,
                 [],
                 pixelWidth: width,
                 pixelHeight: height,
-                isPreview: true);
+                isPreview: true,
+                isLargeImagePreview: isLargeImagePreview);
         }
         catch (Exception ex) when (ex is MagickException or NotSupportedException or InvalidOperationException or IOException)
         {
@@ -341,6 +564,26 @@ public static class ImageLoader
     private static ImageDocument LoadWithWic(string path, CancellationToken cancellationToken)
     {
         var fileInfo = new FileInfo(path);
+        using (var probeStream = new FileStream(
+            path,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete))
+        {
+            var probeDecoder = BitmapDecoder.Create(
+                probeStream,
+                BitmapCreateOptions.PreservePixelFormat,
+                BitmapCacheOption.None);
+            if (probeDecoder.Frames.Count == 0)
+            {
+                throw new InvalidDataException("Image has no displayable frames.");
+            }
+
+            var probeFrame = probeDecoder.Frames[0];
+            LargeImagePolicy.ValidateFullResolutionSource(probeFrame.PixelWidth, probeFrame.PixelHeight);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
         using var stream = new FileStream(
             path,
             FileMode.Open,
@@ -360,16 +603,7 @@ public static class ImageLoader
         }
 
         var frame = decoder.Frames[0];
-        var pixelCount = (long)frame.PixelWidth * frame.PixelHeight;
-        if (pixelCount <= 0)
-        {
-            throw new InvalidDataException("Image dimensions are invalid.");
-        }
-
-        if (pixelCount > MaxPixelCount)
-        {
-            throw new InvalidDataException($"Image dimensions are too large; limit is {MaxPixelCount:N0} pixels.");
-        }
+        LargeImagePolicy.ValidateFullResolutionSource(frame.PixelWidth, frame.PixelHeight);
 
         var orientation = ReadExifOrientation(frame);
         var animationFrames = LoadAnimationFrames(path, decoder, orientation, cancellationToken);
@@ -398,6 +632,11 @@ public static class ImageLoader
             or ArgumentException;
     }
 
+    private static bool SupportsNativePreviewScaling(BitmapDecoder decoder)
+    {
+        return decoder is JpegBitmapDecoder or PngBitmapDecoder;
+    }
+
     private static ImageDocument LoadWithMagick(string path, CancellationToken cancellationToken, Exception wicException)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -405,22 +644,17 @@ public static class ImageLoader
         try
         {
             var fileInfo = new FileInfo(path);
+            var imageInfo = new MagickImageInfo(path);
+            var (metadataWidth, metadataHeight) = GetMagickOrientedDimensions(imageInfo);
+            LargeImagePolicy.ValidateFullResolutionSource(metadataWidth, metadataHeight);
+
             using var image = new MagickImage(path);
             cancellationToken.ThrowIfCancellationRequested();
 
             image.AutoOrient();
             var width = checked((int)image.Width);
             var height = checked((int)image.Height);
-            var pixelCount = (long)width * height;
-            if (pixelCount <= 0)
-            {
-                throw new InvalidDataException("Image dimensions are invalid.");
-            }
-
-            if (pixelCount > MaxPixelCount)
-            {
-                throw new InvalidDataException($"Image dimensions are too large; limit is {MaxPixelCount:N0} pixels.");
-            }
+            LargeImagePolicy.ValidateFullResolutionSource(width, height);
 
             var sourceFormat = image.Format;
             var pngBytes = image.ToByteArray(MagickFormat.Png32);
@@ -468,6 +702,45 @@ public static class ImageLoader
         }
 
         return Path.GetExtension(path).TrimStart('.').ToUpperInvariant();
+    }
+
+    private static bool IsTiffContainer(string path, MagickFormat format)
+    {
+        if (format == MagickFormat.Tiff)
+        {
+            return true;
+        }
+
+        Span<byte> signature = stackalloc byte[4];
+        using var stream = new FileStream(
+            path,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete);
+        if (stream.Read(signature) != signature.Length)
+        {
+            return false;
+        }
+
+        return signature.SequenceEqual("II*\0"u8)
+            || signature.SequenceEqual("II+\0"u8)
+            || signature.SequenceEqual("MM\0*"u8)
+            || signature.SequenceEqual("MM\0+"u8);
+    }
+
+    private static (int Width, int Height) GetMagickOrientedDimensions(IMagickImageInfo imageInfo)
+    {
+        var width = checked((int)imageInfo.Width);
+        var height = checked((int)imageInfo.Height);
+        if (imageInfo.Orientation is OrientationType.LeftTop
+            or OrientationType.RightTop
+            or OrientationType.RightBottom
+            or OrientationType.LeftBottom)
+        {
+            (width, height) = (height, width);
+        }
+
+        return (width, height);
     }
 
     private static bool IsRadianceHdrPath(string path)
@@ -882,7 +1155,7 @@ public static class ImageLoader
 
         var canvasSize = ReadGifCanvasSize(decoder);
         var canvasPixelCount = (long)canvasSize.Width * canvasSize.Height;
-        if (canvasPixelCount <= 0 || canvasPixelCount > MaxPixelCount)
+        if (canvasPixelCount <= 0 || canvasPixelCount > LargeImagePolicy.FullResolutionPixelLimit)
         {
             return [];
         }

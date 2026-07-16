@@ -15,6 +15,12 @@ public enum QuickSearchMode
     FileName,
 }
 
+public enum ZoomIndicatorDisplayMode
+{
+    Percentage,
+    Multiplier,
+}
+
 public sealed class ViewerSettings
 {
     public const int DefaultMainImageCacheMegabytes = 768;
@@ -74,6 +80,10 @@ public sealed class ViewerSettings
     public bool ShowAnimationControls { get; set; } = true;
 
     public bool ShowOperationNotifications { get; set; } = true;
+
+    public bool ShowZoomIndicator { get; set; } = true;
+
+    public ZoomIndicatorDisplayMode ZoomIndicatorDisplayMode { get; set; } = ZoomIndicatorDisplayMode.Percentage;
 
     public bool LoadFullResolutionWhenIdle { get; set; }
 
@@ -136,6 +146,11 @@ public sealed class ViewerSettings
         if (!Enum.IsDefined<global::Pixora.Services.QuickSearchMode>(QuickSearchMode))
         {
             QuickSearchMode = global::Pixora.Services.QuickSearchMode.Index;
+        }
+
+        if (!Enum.IsDefined<global::Pixora.Services.ZoomIndicatorDisplayMode>(ZoomIndicatorDisplayMode))
+        {
+            ZoomIndicatorDisplayMode = global::Pixora.Services.ZoomIndicatorDisplayMode.Percentage;
         }
 
         QuickSearchOffsetX = NormalizeOffset(QuickSearchOffsetX);

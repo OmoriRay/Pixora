@@ -90,6 +90,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly FolderChangeMonitor _folderChangeMonitor = new();
     private readonly DispatcherTimer _animationTimer;
     private readonly DispatcherTimer _boundaryToastTimer;
+    private readonly DispatcherTimer _zoomIndicatorTimer;
     private readonly DispatcherTimer _qualityRestoreTimer;
     private readonly DispatcherTimer _idleFullResolutionTimer;
     private readonly DispatcherTimer _quickSearchDebounceTimer;
@@ -144,15 +145,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private int _mainPreloadForwardRadius = 3;
     private int _mainPreloadOppositeRadius = 1;
     private int _thumbnailLoadConcurrency = 2;
+    private int _largeImagePreviewMaximumSide = LargeImagePolicy.DefaultPreviewMaximumSide;
     private int _catalogCompletionGeneration;
     private int _folderLoadGeneration;
     private int _scheduledFitGeneration;
+    private int _zoomIndicatorGeneration;
     private int _thumbnailVisibleStartIndex;
     private int _thumbnailVisibleEndIndex = -1;
     private int? _quickSearchTargetIndex;
     private QuickSearchIndexResult? _quickSearchResult;
     private int _rotationDegrees;
     private double _scale = 1.0;
+    private TimeSpan _lastImageLoadDuration;
     private Point _dragStartPoint;
     private Point _dragStartOffset;
     private Point _quickSearchDragStartPoint;
@@ -257,6 +261,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Interval = TimeSpan.FromSeconds(2.4),
         };
         _boundaryToastTimer.Tick += BoundaryToastTimer_Tick;
+        _zoomIndicatorTimer = new DispatcherTimer(DispatcherPriority.Normal)
+        {
+            Interval = TimeSpan.FromMilliseconds(1600),
+        };
+        _zoomIndicatorTimer.Tick += ZoomIndicatorTimer_Tick;
         _idleFullResolutionTimer = new DispatcherTimer(DispatcherPriority.ApplicationIdle)
         {
             Interval = IdleFullResolutionLoadDelay,
@@ -323,6 +332,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _quickSearchCts?.Dispose();
         _quickSearchCts = null;
         _boundaryToastTimer.Stop();
+        _zoomIndicatorTimer.Stop();
         _loadCts?.Cancel();
         _loadCts?.Dispose();
         _thumbnailCts?.Cancel();
@@ -490,7 +500,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             await LoadCurrentAsync();
             RememberOpenedFolder(fullFolder);
             StartFolderWatcher(fullFolder);
-            ShowBoundaryToast($"目录扫描完成：{_catalog.Count:N0} 项，{stopwatch.Elapsed.TotalSeconds:0.0} 秒");
+            ShowBoundaryToast($"目录扫描完成：{_catalog.Count:N0} 项，{FormatElapsedDuration(stopwatch.Elapsed)}");
         }
         catch (OperationCanceledException)
         {
@@ -613,7 +623,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 UpdateCommands();
                 PreloadAroundCurrent();
                 StartFolderWatcher(completedCatalog.SourceFolder);
-                ShowBoundaryToast($"目录扫描完成：{completedCatalog.Count:N0} 项，{stopwatch.Elapsed.TotalSeconds:0.0} 秒");
+                if (stopwatch.Elapsed >= TimeSpan.FromMilliseconds(250) || completedCatalog.Count >= 1_000)
+                {
+                    ShowBoundaryToast($"目录索引已补齐：{completedCatalog.Count:N0} 项，{FormatElapsedDuration(stopwatch.Elapsed)}");
+                }
             }, DispatcherPriority.Background);
         }
         catch (OperationCanceledException)
@@ -922,6 +935,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         UpdateInfoPanel();
         UpdateWindowTitle(path);
         UpdateCommands();
+        _lastImageLoadDuration = TimeSpan.Zero;
+        var loadStopwatch = Stopwatch.StartNew();
 
         try
         {
@@ -935,6 +950,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _lastInlineErrorMessage = string.Empty;
             _rotationDegrees = 0;
             StartAnimation(document);
+            loadStopwatch.Stop();
+            _lastImageLoadDuration = loadStopwatch.Elapsed;
 
             UpdateVideoBadge();
             LoadingPanel.Visibility = Visibility.Collapsed;
@@ -1065,6 +1082,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _viewerSettings.UseAutomaticCacheSizing);
         _mainPreloadForwardRadius = performanceProfile.MainPreloadForwardRadius;
         _mainPreloadOppositeRadius = performanceProfile.MainPreloadOppositeRadius;
+        _largeImagePreviewMaximumSide = LargeImagePolicy.ResolvePreviewMaximumSide(
+            performanceProfile.CacheBudgets.PreviewMegabytes);
         ConfigureThumbnailLoadConcurrency(performanceProfile.ThumbnailLoadConcurrency);
         _thumbnailDiskCache.SetMaxMegabytes(NormalizeMegabytes(
             _viewerSettings.ThumbnailDiskCacheMegabytes,
@@ -1108,9 +1127,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async Task<ImageDocument?> TryLoadDisplayPreviewDocumentAsync(string path, CancellationToken cancellationToken)
     {
-        if (!_isFitMode || !ShouldUseDisplayPreview(path) || ViewerSurface.ActualWidth <= 0 || ViewerSurface.ActualHeight <= 0)
+        if (!ShouldUseDisplayPreview(path))
         {
             return null;
+        }
+
+        if (!_isFitMode || ViewerSurface.ActualWidth <= 0 || ViewerSurface.ActualHeight <= 0)
+        {
+            var requiresSafetyPreview = await Task.Run(
+                () => ImageLoader.RequiresSafetyPreview(path, cancellationToken),
+                cancellationToken);
+            if (!requiresSafetyPreview)
+            {
+                return null;
+            }
         }
 
         var (maxWidth, maxHeight) = GetDisplayPreviewBounds();
@@ -1123,7 +1153,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         var document = await Task.Run(
-            () => ImageLoader.LoadPreviewDocument(path, maxWidth, maxHeight, cancellationToken),
+            () => ImageLoader.LoadPreviewDocument(
+                path,
+                maxWidth,
+                maxHeight,
+                cancellationToken,
+                _largeImagePreviewMaximumSide),
             cancellationToken);
         _displayPreviewCache.Add(cacheKey, path, document.Bitmap);
         return document;
@@ -1141,9 +1176,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             && !extension.Equals(".hdr", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static string GetDisplayPreviewCacheKey(string path, int maxWidth, int maxHeight)
+    private string GetDisplayPreviewCacheKey(string path, int maxWidth, int maxHeight)
     {
-        return $"{Path.GetFullPath(path)}|{maxWidth}x{maxHeight}";
+        return $"{Path.GetFullPath(path)}|{maxWidth}x{maxHeight}|large:{_largeImagePreviewMaximumSide}";
     }
 
     private (int MaxWidth, int MaxHeight) GetDisplayPreviewBounds()
@@ -1158,7 +1193,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void PreloadAroundCurrent()
     {
         CancelPreload();
-        if (_isClosing || ShouldReduceBackgroundLoading())
+        if (_isClosing
+            || _currentDocument?.IsLargeImagePreview == true
+            || ShouldReduceBackgroundLoading())
         {
             ApplyLowMemoryProtectionIfNeeded();
             return;
@@ -1184,6 +1221,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var document = _currentDocument;
         if (!_viewerSettings.LoadFullResolutionWhenIdle
             || document is not { IsPreview: true }
+            || document.IsLargeImagePreview
             || _isClosing
             || ShouldReduceBackgroundLoading()
             || document.IsAnimated
@@ -1217,6 +1255,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var document = _currentDocument;
         if (!_viewerSettings.LoadFullResolutionWhenIdle
             || document is not { IsPreview: true }
+            || document.IsLargeImagePreview
             || _isClosing
             || ShouldReduceBackgroundLoading()
             || _cache.TryGet(document.Path, out _))
@@ -1332,8 +1371,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         try
         {
+            var requiresSafetyPreview = await Task.Run(
+                () => ImageLoader.RequiresSafetyPreview(path, cancellationToken),
+                cancellationToken);
+            if (requiresSafetyPreview)
+            {
+                return;
+            }
+
             var preview = await Task.Run(
-                () => ImageLoader.LoadPreview(path, maxWidth, maxHeight, cancellationToken),
+                () => ImageLoader.LoadPreview(
+                    path,
+                    maxWidth,
+                    maxHeight,
+                    cancellationToken,
+                    _largeImagePreviewMaximumSide),
                 cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             _displayPreviewCache.Add(cacheKey, path, preview);
@@ -1416,7 +1468,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         FitToWindow(_fitAllowsUpscale);
     }
 
-    private void FitToWindow(bool allowUpscale)
+    private void FitToWindow(bool allowUpscale, bool showZoomIndicator = false)
     {
         if ((_currentDocument is null && BitmapView.Source is null)
             || ViewerSurface.ActualWidth <= 0
@@ -1438,11 +1490,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             ViewerSurface.ActualWidth,
             ViewerSurface.ActualHeight,
             MinScale,
-            allowUpscale ? MaxScale : GetDefaultFitMaxScale(displayPixelWidth, displayPixelHeight));
+            allowUpscale ? GetMaximumInteractiveScale() : GetDefaultFitMaxScale(displayPixelWidth, displayPixelHeight));
 
         _isFitMode = true;
         _fitAllowsUpscale = allowUpscale;
         SetTransform(transform.Scale, transform.OffsetX, transform.OffsetY);
+        if (showZoomIndicator)
+        {
+            ShowZoomIndicator(transform.Scale);
+        }
     }
 
     private void ScheduleFitToWindowAfterLayout(ImageDocument? expectedDocument = null)
@@ -1497,7 +1553,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return 1.0;
         }
 
-        return Math.Clamp(maxScale, 1.0, MaxScale);
+        return Math.Clamp(maxScale, 1.0, GetMaximumInteractiveScale());
     }
 
     private async Task ShowActualSizeAsync()
@@ -1507,14 +1563,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        if (!await EnsureFullResolutionDocumentAsync())
+        if (!await EnsureFullResolutionDocumentAsync(allowLargeImagePreview: true))
         {
             return;
         }
 
         _isFitMode = false;
         _fitAllowsUpscale = false;
-        SetCenteredTransform(1.0);
+        SetCenteredTransform(1.0, showZoomIndicator: true);
     }
 
     private async Task ToggleFitActualAsync()
@@ -1528,7 +1584,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             if (!_fitAllowsUpscale && CanUpscaleCurrentFit())
             {
-                FitToWindow(allowUpscale: true);
+                FitToWindow(allowUpscale: true, showZoomIndicator: true);
                 return;
             }
 
@@ -1542,7 +1598,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
         else
         {
-            FitToWindow(allowUpscale: true);
+            FitToWindow(allowUpscale: true, showZoomIndicator: true);
         }
     }
 
@@ -1563,7 +1619,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 ViewerSurface.ActualWidth / displayPixelWidth,
                 ViewerSurface.ActualHeight / displayPixelHeight),
             MinScale,
-            MaxScale);
+            GetMaximumInteractiveScale());
 
         return fullFitScale > Math.Max(1.001, _scale + 0.001);
     }
@@ -1575,12 +1631,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        if (!await EnsureFullResolutionDocumentAsync())
+        if (!await EnsureFullResolutionDocumentAsync(allowLargeImagePreview: true))
         {
             return;
         }
 
-        SetCenteredTransform(Math.Clamp(scale, MinScale, MaxScale));
+        SetCenteredTransform(Math.Clamp(scale, MinScale, GetMaximumInteractiveScale()));
     }
 
     private void CenterAtScale(double scale)
@@ -1590,10 +1646,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        SetCenteredTransform(Math.Clamp(scale, MinScale, MaxScale));
+        SetCenteredTransform(Math.Clamp(scale, MinScale, GetMaximumInteractiveScale()));
     }
 
-    private void SetCenteredTransform(double scale)
+    private void SetCenteredTransform(double scale, bool showZoomIndicator = false)
     {
         if (_currentDocument is null)
         {
@@ -1615,6 +1671,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             scale);
 
         SetTransform(transform.Scale, transform.OffsetX, transform.OffsetY);
+        if (showZoomIndicator)
+        {
+            ShowZoomIndicator(transform.Scale);
+        }
     }
 
     private async Task ZoomAtAsync(Point center, double targetScale)
@@ -1625,7 +1685,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         var zoomFactor = _scale > 0 ? targetScale / _scale : 1.0;
-        if (!await EnsureFullResolutionDocumentAsync())
+        if (!await EnsureFullResolutionDocumentAsync(allowLargeImagePreview: true))
         {
             return;
         }
@@ -1635,7 +1695,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             targetScale = _scale * zoomFactor;
         }
 
-        var newScale = Math.Clamp(targetScale, MinScale, MaxScale);
+        var newScale = Math.Clamp(targetScale, MinScale, GetMaximumInteractiveScale());
         var imageX = (center.X - BitmapView.OffsetX) / _scale;
         var imageY = (center.Y - BitmapView.OffsetY) / _scale;
         var newX = center.X - imageX * newScale;
@@ -1645,6 +1705,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _fitAllowsUpscale = false;
         UseInteractiveScaling();
         SetTransform(newScale, newX, newY);
+        ShowZoomIndicator(newScale);
     }
 
     private async Task ZoomByAsync(double factor)
@@ -1659,6 +1720,118 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         BitmapView.ViewScale = scale;
         BitmapView.OffsetX = x;
         BitmapView.OffsetY = y;
+    }
+
+    private void ShowZoomIndicator(double scale)
+    {
+        if (!_viewerSettings.ShowZoomIndicator)
+        {
+            _zoomIndicatorTimer.Stop();
+            ZoomIndicator.BeginAnimation(OpacityProperty, null);
+            ZoomIndicator.Opacity = 0;
+            ZoomIndicator.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        _zoomIndicatorGeneration++;
+        _zoomIndicatorTimer.Stop();
+        ZoomIndicator.BeginAnimation(OpacityProperty, null);
+        ZoomIndicatorText.Text = FormatZoomScale(
+            scale,
+            _viewerSettings.ZoomIndicatorDisplayMode,
+            GetFitReferenceScale());
+        ZoomIndicator.Visibility = Visibility.Visible;
+        ZoomIndicator.Opacity = 1;
+        _zoomIndicatorTimer.Start();
+    }
+
+    private double GetFitReferenceScale()
+    {
+        var displayPixelWidth = GetDisplayPixelWidth();
+        var displayPixelHeight = GetDisplayPixelHeight();
+        if (displayPixelWidth <= 0
+            || displayPixelHeight <= 0
+            || ViewerSurface.ActualWidth <= 0
+            || ViewerSurface.ActualHeight <= 0)
+        {
+            return 1.0;
+        }
+
+        return ImageViewportMath.CalculateFitTransform(
+            displayPixelWidth,
+            displayPixelHeight,
+            ViewerSurface.ActualWidth,
+            ViewerSurface.ActualHeight,
+            MinScale,
+            GetDefaultFitMaxScale(displayPixelWidth, displayPixelHeight)).Scale;
+    }
+
+    private static string FormatZoomScale(
+        double scale,
+        ZoomIndicatorDisplayMode displayMode,
+        double fitReferenceScale)
+    {
+        if (displayMode == ZoomIndicatorDisplayMode.Multiplier)
+        {
+            var relativeScale = fitReferenceScale > 0
+                ? scale / fitReferenceScale
+                : scale;
+            return relativeScale < 0.1
+                ? $"{relativeScale:0.000}×"
+                : relativeScale < 10
+                    ? $"{relativeScale:0.00}×"
+                    : $"{relativeScale:0.0}×";
+        }
+
+        var percentage = scale * 100;
+        if (percentage < 1)
+        {
+            return $"{percentage:0.0}%";
+        }
+
+        return $"{percentage:0}%";
+    }
+
+    private static string FormatElapsedDuration(TimeSpan elapsed)
+    {
+        if (elapsed < TimeSpan.FromMilliseconds(1))
+        {
+            return "<1 毫秒";
+        }
+
+        if (elapsed < TimeSpan.FromSeconds(1))
+        {
+            return $"{elapsed.TotalMilliseconds:0} 毫秒";
+        }
+
+        return $"{elapsed.TotalSeconds:0.0} 秒";
+    }
+
+    private void ZoomIndicatorTimer_Tick(object? sender, EventArgs e)
+    {
+        _zoomIndicatorTimer.Stop();
+        var generation = _zoomIndicatorGeneration;
+        var animation = new DoubleAnimation
+        {
+            From = ZoomIndicator.Opacity,
+            To = 0,
+            Duration = TimeSpan.FromMilliseconds(320),
+            FillBehavior = FillBehavior.Stop,
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
+        };
+
+        animation.Completed += (_, _) =>
+        {
+            if (generation != _zoomIndicatorGeneration)
+            {
+                return;
+            }
+
+            ZoomIndicator.Opacity = 0;
+            ZoomIndicator.Visibility = Visibility.Collapsed;
+        };
+
+        ZoomIndicator.BeginAnimation(OpacityProperty, animation);
     }
 
     private int GetDisplayPixelWidth()
@@ -1684,10 +1857,28 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         BitmapView.Source = CreateDisplayBitmap(source);
     }
 
-    private async Task<bool> EnsureFullResolutionDocumentAsync()
+    private double GetMaximumInteractiveScale()
+    {
+        return _currentDocument?.IsLargeImagePreview == true ? 1.0 : MaxScale;
+    }
+
+    private async Task<bool> EnsureFullResolutionDocumentAsync(bool allowLargeImagePreview = false)
     {
         if (_currentDocument is null)
         {
+            return false;
+        }
+
+        if (_currentDocument.IsLargeImagePreview)
+        {
+            if (allowLargeImagePreview)
+            {
+                return true;
+            }
+
+            ShowUserError(
+                "当前图片超过 1.2 亿像素，正在使用超大图安全预览。\n\n" +
+                "此操作需要完整原始像素，安全预览模式下暂不可用。");
             return false;
         }
 
@@ -1960,6 +2151,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (!_viewerSettings.ShowOperationNotifications)
         {
             HideBoundaryToast();
+            return;
+        }
+
+        if (_currentDocument?.IsLargeImagePreview == true)
+        {
+            ShowBoundaryToast(
+                $"超大图片已使用 {_currentDocument.Bitmap.PixelWidth:N0} × {_currentDocument.Bitmap.PixelHeight:N0} 安全预览，打开用时 {FormatElapsedDuration(_lastImageLoadDuration)}");
             return;
         }
 
@@ -2960,7 +3158,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         if (_shortcutSettings.Matches(ShortcutAction.FitWindow, shortcut))
         {
-            FitToWindow(allowUpscale: true);
+            FitToWindow(allowUpscale: true, showZoomIndicator: true);
             e.Handled = true;
             return;
         }
@@ -3190,7 +3388,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         if (e.ChangedButton == MouseButton.Middle)
         {
-            FitToWindow(allowUpscale: true);
+            FitToWindow(allowUpscale: true, showZoomIndicator: true);
             e.Handled = true;
         }
     }
@@ -3379,7 +3577,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void FitMenuItem_Click(object sender, RoutedEventArgs e)
     {
-        FitToWindow(allowUpscale: true);
+            FitToWindow(allowUpscale: true, showZoomIndicator: true);
     }
 
     private async void ActualSizeMenuItem_Click(object sender, RoutedEventArgs e)
@@ -3743,6 +3941,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             builder.AppendLine($"动图：{FormatOnOff(currentDocument.IsAnimated)}");
             builder.AppendLine($"动图帧数：{currentDocument.AnimationFrames.Count:N0}");
             builder.AppendLine($"当前为预览图：{FormatOnOff(currentDocument.IsPreview)}");
+            builder.AppendLine($"当前为超大图安全预览：{FormatOnOff(currentDocument.IsLargeImagePreview)}");
+            if (currentDocument.IsLargeImagePreview)
+            {
+                builder.AppendLine(
+                    $"安全预览尺寸：{currentDocument.Bitmap.PixelWidth:N0} x {currentDocument.Bitmap.PixelHeight:N0}");
+            }
             builder.AppendLine($"BitmapSource：{currentDocument.Bitmap.PixelWidth:N0} x {currentDocument.Bitmap.PixelHeight:N0}，{currentDocument.Bitmap.Format}");
         }
 
@@ -6791,10 +6995,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
 
             var animationInfo = _currentDocument.IsAnimated ? $"  {_currentDocument.AnimationFrames.Count} 帧" : string.Empty;
+            var largeImagePreviewInfo = _currentDocument.IsLargeImagePreview
+                ? $"  超大图安全预览 {_currentDocument.Bitmap.PixelWidth:N0} x {_currentDocument.Bitmap.PixelHeight:N0}"
+                : string.Empty;
+            var loadDurationInfo = _lastImageLoadDuration > TimeSpan.Zero
+                ? $"  打开用时 {FormatElapsedDuration(_lastImageLoadDuration)}"
+                : string.Empty;
             InfoText.Text =
                 $"{_catalog.Index + 1}/{_catalog.Count}  {_currentDocument.FileName}{favoriteInfo}\n" +
                 $"{_currentDocument.PixelWidth} x {_currentDocument.PixelHeight}  " +
-                $"{_currentDocument.FormatName}{animationInfo}  {FormatFileSize(_currentDocument.FileSize)}{rotationInfo}  " +
+                $"{_currentDocument.FormatName}{animationInfo}{largeImagePreviewInfo}  {FormatFileSize(_currentDocument.FileSize)}{rotationInfo}{loadDurationInfo}  " +
                 $"修改：{_currentDocument.LastWriteTime:yyyy-MM-dd HH:mm:ss}\n" +
                 _currentDocument.Path;
             InfoPanel.Visibility = Visibility.Visible;

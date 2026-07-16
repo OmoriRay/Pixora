@@ -49,7 +49,7 @@ public sealed class ThumbnailImageLoader
             return wicThumbnail;
         }
 
-        var document = ImageLoader.Load(path, cancellationToken);
+        var document = ImageLoader.LoadPreviewDocument(path, maxWidth, maxHeight, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         return ScaleBitmapToBounds(document.Bitmap, maxWidth, maxHeight);
     }
@@ -69,6 +69,7 @@ public sealed class ThumbnailImageLoader
 
             int pixelWidth;
             int pixelHeight;
+            bool supportsNativePreviewScaling;
             using (var probeStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
             {
                 var decoder = BitmapDecoder.Create(
@@ -83,9 +84,17 @@ public sealed class ThumbnailImageLoader
 
                 pixelWidth = decoder.Frames[0].PixelWidth;
                 pixelHeight = decoder.Frames[0].PixelHeight;
+                supportsNativePreviewScaling = decoder is JpegBitmapDecoder or PngBitmapDecoder;
             }
 
             if (pixelWidth <= 0 || pixelHeight <= 0)
+            {
+                return false;
+            }
+
+            LargeImagePolicy.ValidateSafetyPreviewSource(pixelWidth, pixelHeight);
+            if (LargeImagePolicy.RequiresSafetyPreview(pixelWidth, pixelHeight)
+                && !supportsNativePreviewScaling)
             {
                 return false;
             }

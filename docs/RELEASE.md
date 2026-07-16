@@ -15,6 +15,8 @@
 - 默认压缩包：`publish\Pixora-win-x64.zip`
 - 许可证：MIT License
 
+公开运行环境应统一表述为：Windows 10 x64（最低支持 22H2）或 Windows 11 x64，并需要 .NET Desktop Runtime 9 x64。不要写成容易被理解为“只支持 Windows 10 22H2”的并列版本列表。
+
 Release 配置关闭 PDB：
 
 ```xml
@@ -34,7 +36,7 @@ Release 配置关闭 PDB：
   - `<FileVersion>`
   - `<InformationalVersion>`
 - `README.md`
-  - `当前版本：`
+  - `当前发布版本：`
 - Git 标签
   - 推荐格式：`vX.Y.Z`
 - GitHub Release 标题
@@ -118,6 +120,7 @@ dotnet run --project tests\Pixora.SmokeTests\Pixora.SmokeTests.csproj -- --media
 - 从命令行传入目录路径。
 - 在大目录中双击某一张图，确认先显示当前图，再补齐列表。
 - 上一张/下一张、适应窗口、原始大小、缩放、旋转。
+- 缩放比例提示会自动淡出；百分比模式以图片或安全预览为基准，相对倍数模式以适应窗口为 `1.00×`，两种设置重启后仍保留。
 - 缩略图栏显示/隐藏、单列/双列。
 - GIF/APNG 动图播放、暂停、重新播放。
 - 收藏、取消收藏、只看收藏、退出收藏。
@@ -129,6 +132,7 @@ dotnet run --project tests\Pixora.SmokeTests\Pixora.SmokeTests.csproj -- --media
 - 视频文件显示封面，并可另存视频封面。
 - 静态图片右键显示“设为桌面壁纸”，GIF/APNG/视频不显示。
 - 文件关联注册后，资源管理器中的图片文件类型图标是 Pixora 图片图标。
+- 超大 JPEG/PNG 和带安全金字塔层的 BigTIFF 能显示安全预览，信息栏显示真实打开用时；快速小目录索引不会显示误导性的 `0.0 秒`。
 
 ## 生成发布包
 

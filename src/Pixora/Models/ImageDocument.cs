@@ -14,7 +14,8 @@ public sealed class ImageDocument
         bool isVideo = false,
         int? pixelWidth = null,
         int? pixelHeight = null,
-        bool isPreview = false)
+        bool isPreview = false,
+        bool isLargeImagePreview = false)
     {
         Path = path;
         Bitmap = bitmap;
@@ -25,7 +26,8 @@ public sealed class ImageDocument
         IsVideo = isVideo;
         PixelWidth = pixelWidth.GetValueOrDefault(bitmap.PixelWidth);
         PixelHeight = pixelHeight.GetValueOrDefault(bitmap.PixelHeight);
-        IsPreview = isPreview;
+        IsLargeImagePreview = isLargeImagePreview;
+        IsPreview = isPreview || isLargeImagePreview;
     }
 
     public string Path { get; }
@@ -43,6 +45,8 @@ public sealed class ImageDocument
     public bool IsVideo { get; }
 
     public bool IsPreview { get; }
+
+    public bool IsLargeImagePreview { get; }
 
     public bool IsAnimated => AnimationFrames.Count > 1;
 

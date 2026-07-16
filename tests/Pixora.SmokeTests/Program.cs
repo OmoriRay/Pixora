@@ -56,6 +56,8 @@ internal static class Program
         AssertManyFrameGifLoads(root);
         AssertRadianceHdrLoads(hdrImage);
         AssertAvifLoads(avifImage);
+        AssertLargeImageSafetyPreview(root);
+        AssertTiffOverviewSelector();
         AssertWebImageExtensions();
         AssertMediaFormatRegistry();
         AssertFileAssociationMoveRepair();
@@ -116,6 +118,11 @@ internal static class Program
             AssertExternalImageRendersFull(externalImage);
         }
 
+        foreach (var largeImage in options.LargeImages)
+        {
+            AssertExternalLargeImageSafetyPreview(largeImage);
+        }
+
         Console.WriteLine("Smoke tests passed.");
         return 0;
     }
@@ -141,6 +148,12 @@ internal static class Program
             if (arg.Equals("--video-sample-count", StringComparison.OrdinalIgnoreCase))
             {
                 options.VideoSampleCount = int.Parse(RequireOptionValue(args, ref index, arg));
+                continue;
+            }
+
+            if (arg.Equals("--large-image", StringComparison.OrdinalIgnoreCase))
+            {
+                options.LargeImages.Add(RequireOptionValue(args, ref index, arg));
                 continue;
             }
 
@@ -314,6 +327,323 @@ internal static class Program
         Assert(document.PixelWidth == 1 && document.PixelHeight == 1, "AVIF should decode as a 1 x 1 image.");
         Assert(document.FormatName.Contains("MAGICK", StringComparison.OrdinalIgnoreCase)
             || document.FormatName.Contains("AVIF", StringComparison.OrdinalIgnoreCase), "AVIF should report a useful format name.");
+    }
+
+    private static void AssertLargeImageSafetyPreview(string root)
+    {
+        Assert(
+            !LargeImagePolicy.RequiresSafetyPreview(15_000, 8_000),
+            "Exactly 120 million pixels should remain eligible for full-resolution decoding.");
+        Assert(
+            LargeImagePolicy.RequiresSafetyPreview(15_001, 8_000),
+            "Images above 120 million pixels should use the safety preview path.");
+
+        var standardPreview = LargeImagePolicy.CalculatePreviewDecodeSize(
+            16_000,
+            8_000,
+            requestedMaxWidth: 1_920,
+            requestedMaxHeight: 1_080,
+            LargeImagePolicy.DefaultPreviewMaximumSide);
+        Assert(
+            standardPreview == (4_096, 2_048),
+            $"Standard oversized preview should preserve aspect ratio at 4096 px, got {standardPreview}.");
+
+        var clampedStandardPreview = LargeImagePolicy.CalculatePreviewDecodeSize(
+            16_000,
+            8_000,
+            requestedMaxWidth: 20_000,
+            requestedMaxHeight: 20_000,
+            LargeImagePolicy.DefaultPreviewMaximumSide);
+        Assert(
+            clampedStandardPreview == standardPreview,
+            "An oversized preview request must not exceed the selected safety-preview tier.");
+
+        var highPerformancePreview = LargeImagePolicy.CalculatePreviewDecodeSize(
+            16_000,
+            8_000,
+            requestedMaxWidth: 1_920,
+            requestedMaxHeight: 1_080,
+            LargeImagePolicy.HighPerformancePreviewMaximumSide);
+        Assert(
+            highPerformancePreview == (8_192, 4_096),
+            $"High-performance oversized preview should preserve aspect ratio at 8192 px, got {highPerformancePreview}.");
+        Assert(
+            LargeImagePolicy.ResolvePreviewMaximumSide(512) == LargeImagePolicy.DefaultPreviewMaximumSide
+                && LargeImagePolicy.ResolvePreviewMaximumSide(1_024) == LargeImagePolicy.HighPerformancePreviewMaximumSide,
+            "Oversized preview quality should follow the preview-cache performance tier.");
+
+        var safetyLimitRejected = false;
+        try
+        {
+            LargeImagePolicy.ValidateSafetyPreviewSource(50_001, 40_000);
+        }
+        catch (InvalidDataException)
+        {
+            safetyLimitRejected = true;
+        }
+
+        Assert(safetyLimitRejected, "Sources above two billion pixels should be rejected before decoding.");
+
+        var unsupportedPath = Path.Combine(root, "test-output", "oversized-unsupported.bmp");
+        EnsureOversizedRleBitmap(unsupportedPath, width: 12_001, height: 10_000);
+        Assert(
+            ImageLoader.RequiresSafetyPreview(unsupportedPath, CancellationToken.None),
+            "Oversized WIC metadata should select the safety preview path without loading the pixels.");
+
+        var unsupportedPreviewRejected = false;
+        try
+        {
+            _ = ImageLoader.LoadPreviewDocument(
+                unsupportedPath,
+                maxWidth: 1_920,
+                maxHeight: 1_080,
+                CancellationToken.None,
+                LargeImagePolicy.DefaultPreviewMaximumSide);
+        }
+        catch (InvalidDataException)
+        {
+            unsupportedPreviewRejected = true;
+        }
+
+        Assert(
+            unsupportedPreviewRejected,
+            "Oversized formats without native WIC decode scaling should be rejected before pixel decoding.");
+
+        var path = Path.Combine(root, "test-output", "oversized-native-preview.png");
+        EnsureOversizedGrayscalePng(path, width: 12_001, height: 10_000);
+        Assert(
+            ImageLoader.RequiresSafetyPreview(path, CancellationToken.None),
+            "Oversized PNG metadata should select the native safety preview path.");
+
+        var decodedPreview = ImageLoader.LoadPreviewDocument(
+            path,
+            maxWidth: 1_920,
+            maxHeight: 1_080,
+            CancellationToken.None,
+            LargeImagePolicy.DefaultPreviewMaximumSide);
+        Assert(decodedPreview.IsLargeImagePreview, "Native oversized WIC decoding should produce a safety preview document.");
+        var decodedMaximumSide = Math.Max(decodedPreview.Bitmap.PixelWidth, decodedPreview.Bitmap.PixelHeight);
+        Assert(
+            decodedMaximumSide is >= 4_090 and <= 4_096,
+            $"Standard oversized PNG previews should stay within and close to the 4096 px tier, got {decodedPreview.Bitmap.PixelWidth} x {decodedPreview.Bitmap.PixelHeight}.");
+        Assert(
+            decodedPreview.PixelWidth == 12_001 && decodedPreview.PixelHeight == 10_000,
+            "Scaled oversized WIC previews should preserve their original dimensions as metadata.");
+
+        var preview = BitmapSource.Create(
+            1,
+            1,
+            96,
+            96,
+            PixelFormats.Bgra32,
+            null,
+            new byte[] { 0, 0, 0, 255 },
+            4);
+        preview.Freeze();
+
+        var previewDocument = ImageLoader.CreatePreviewDocument(path, preview, CancellationToken.None);
+        Assert(previewDocument.IsPreview, "Oversized images should remain marked as previews.");
+        Assert(previewDocument.IsLargeImagePreview, "Oversized image metadata should be retained on the preview document.");
+        Assert(
+            previewDocument.PixelWidth == 12_001 && previewDocument.PixelHeight == 10_000,
+            "Safety preview documents should retain the original image dimensions.");
+
+        var fullResolutionRejected = false;
+        try
+        {
+            ImageLoader.Load(path, CancellationToken.None);
+        }
+        catch (InvalidDataException)
+        {
+            fullResolutionRejected = true;
+        }
+
+        Assert(fullResolutionRejected, "Oversized images should be rejected before full-resolution WIC decoding.");
+    }
+
+    private static void EnsureOversizedRleBitmap(string path, int width, int height)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+
+        var fullRuns = width / byte.MaxValue;
+        var remainder = width % byte.MaxValue;
+        var encodedRowBytes = checked((fullRuns * 2) + (remainder > 0 ? 2 : 0) + 2);
+        var encodedImageBytes = checked((encodedRowBytes * height) + 2);
+        const int pixelOffset = 14 + 40 + 8;
+        var fileSize = checked(pixelOffset + encodedImageBytes);
+
+        using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
+        using var writer = new BinaryWriter(stream);
+
+        writer.Write((ushort)0x4D42);
+        writer.Write(fileSize);
+        writer.Write((ushort)0);
+        writer.Write((ushort)0);
+        writer.Write(pixelOffset);
+
+        writer.Write(40);
+        writer.Write(width);
+        writer.Write(height);
+        writer.Write((ushort)1);
+        writer.Write((ushort)8);
+        writer.Write(1);
+        writer.Write(encodedImageBytes);
+        writer.Write(0);
+        writer.Write(0);
+        writer.Write(2);
+        writer.Write(2);
+
+        writer.Write(new byte[]
+        {
+            0, 0, 0, 0,
+            255, 255, 255, 0,
+        });
+
+        for (var y = 0; y < height; y++)
+        {
+            for (var run = 0; run < fullRuns; run++)
+            {
+                writer.Write(byte.MaxValue);
+                writer.Write((byte)1);
+            }
+
+            if (remainder > 0)
+            {
+                writer.Write((byte)remainder);
+                writer.Write((byte)1);
+            }
+
+            writer.Write((byte)0);
+            writer.Write((byte)0);
+        }
+
+        writer.Write((byte)0);
+        writer.Write((byte)1);
+    }
+
+    private static void EnsureOversizedGrayscalePng(string path, int width, int height)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+
+        using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
+        using var writer = new BinaryWriter(stream);
+        writer.Write(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 });
+
+        var header = new byte[13];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(header.AsSpan(0, 4), checked((uint)width));
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(header.AsSpan(4, 4), checked((uint)height));
+        header[8] = 1;
+        header[9] = 0;
+        header[10] = 0;
+        header[11] = 0;
+        header[12] = 0;
+        WritePngChunk(writer, "IHDR", header);
+
+        byte[] compressedPixels;
+        using (var compressed = new MemoryStream())
+        {
+            using (var zlib = new System.IO.Compression.ZLibStream(
+                compressed,
+                System.IO.Compression.CompressionLevel.Fastest,
+                leaveOpen: true))
+            {
+                var scanline = new byte[checked(((width + 7) / 8) + 1)];
+                for (var y = 0; y < height; y++)
+                {
+                    zlib.Write(scanline);
+                }
+            }
+
+            compressedPixels = compressed.ToArray();
+        }
+
+        WritePngChunk(writer, "IDAT", compressedPixels);
+        WritePngChunk(writer, "IEND", []);
+    }
+
+    private static void WritePngChunk(BinaryWriter writer, string type, byte[] data)
+    {
+        var typeBytes = System.Text.Encoding.ASCII.GetBytes(type);
+        WriteUInt32BigEndian(writer, checked((uint)data.Length));
+        writer.Write(typeBytes);
+        writer.Write(data);
+        WriteUInt32BigEndian(writer, CalculatePngCrc(typeBytes, data));
+    }
+
+    private static uint CalculatePngCrc(byte[] type, byte[] data)
+    {
+        var crc = uint.MaxValue;
+        foreach (var value in type)
+        {
+            crc = UpdatePngCrc(crc, value);
+        }
+
+        foreach (var value in data)
+        {
+            crc = UpdatePngCrc(crc, value);
+        }
+
+        return ~crc;
+    }
+
+    private static uint UpdatePngCrc(uint crc, byte value)
+    {
+        crc ^= value;
+        for (var bit = 0; bit < 8; bit++)
+        {
+            crc = (crc & 1) != 0
+                ? 0xEDB88320U ^ (crc >> 1)
+                : crc >> 1;
+        }
+
+        return crc;
+    }
+
+    private static void WriteUInt32BigEndian(BinaryWriter writer, uint value)
+    {
+        writer.Write(new byte[]
+        {
+            (byte)(value >> 24),
+            (byte)(value >> 16),
+            (byte)(value >> 8),
+            (byte)value,
+        });
+    }
+
+    private static void AssertTiffOverviewSelector()
+    {
+        const int sourceWidth = 193_224;
+        const int sourceHeight = 90_014;
+        TiffOverviewCandidate[] candidates =
+        [
+            new(0, sourceWidth, sourceHeight),
+            new(1, 1_024, 477),
+            new(2, 48_306, 22_503),
+            new(3, 12_076, 5_625),
+            new(4, 3_019, 1_406),
+            new(5, 4_096, 4_096),
+        ];
+
+        var standard = TiffOverviewSelector.SelectBest(
+            sourceWidth,
+            sourceHeight,
+            candidates,
+            LargeImagePolicy.DefaultPreviewMaximumSide);
+        Assert(standard?.FrameIndex == 4, "Standard BigTIFF preview should choose the nearby low-memory pyramid level.");
+
+        var highPerformance = TiffOverviewSelector.SelectBest(
+            sourceWidth,
+            sourceHeight,
+            candidates,
+            LargeImagePolicy.HighPerformancePreviewMaximumSide);
+        Assert(highPerformance?.FrameIndex == 3, "High-performance BigTIFF preview should choose the sharper safe pyramid level.");
+
+        var thumbnail = TiffOverviewSelector.SelectBest(
+            sourceWidth,
+            sourceHeight,
+            candidates,
+            targetMaximumSide: 240);
+        Assert(thumbnail?.FrameIndex == 1, "BigTIFF thumbnails should use the embedded thumbnail instead of a large pyramid level.");
     }
 
     private static void AssertWebImageExtensions()
@@ -768,6 +1098,8 @@ internal static class Program
     private static void AssertViewerSettings(string root)
     {
         Assert(!new ViewerSettings().HideQuickSearchAfterJump, "Quick search should remain visible after a successful jump by default.");
+        Assert(new ViewerSettings().ShowZoomIndicator, "Zoom percentage indicator should be enabled by default.");
+        Assert(new ViewerSettings().ZoomIndicatorDisplayMode == ZoomIndicatorDisplayMode.Percentage, "Zoom indicator should default to percentage mode.");
         Assert(
             new ViewerSettings().MainImageCacheMegabytes == 768
             && new ViewerSettings().DisplayPreviewCacheMegabytes == 192
@@ -805,6 +1137,8 @@ internal static class Program
             MainWindowMaximized = true,
             ShowAnimationControls = false,
             ShowOperationNotifications = false,
+            ShowZoomIndicator = false,
+            ZoomIndicatorDisplayMode = ZoomIndicatorDisplayMode.Multiplier,
             ThumbnailDiskCacheMegabytes = 1024,
             IncludePrivatePathsInDiagnostics = true,
         };
@@ -832,9 +1166,15 @@ internal static class Program
 
         Assert(!loaded.ShowAnimationControls, "Viewer settings should persist animation control visibility.");
         Assert(!loaded.ShowOperationNotifications, "Viewer settings should persist operation notification visibility.");
+        Assert(!loaded.ShowZoomIndicator, "Viewer settings should persist zoom indicator visibility.");
+        Assert(loaded.ZoomIndicatorDisplayMode == ZoomIndicatorDisplayMode.Multiplier, "Viewer settings should persist the zoom indicator display mode.");
         Assert(loaded.ThumbnailDiskCacheMegabytes == 1024, "Viewer settings should persist thumbnail disk cache capacity.");
         Assert(loaded.IncludePrivatePathsInDiagnostics, "Viewer settings should persist diagnostic privacy preference.");
         Assert(typeof(ViewerSettings).GetProperty("ShowDirectoryStats") is null, "Viewer settings should not retain the removed directory statistics option.");
+        var settingsXaml = File.ReadAllText(Path.Combine(root, "src", "Pixora", "ShortcutSettingsWindow.xaml"));
+        Assert(settingsXaml.Contains("x:Name=\"ShowZoomIndicatorCheckBox\"", StringComparison.Ordinal), "Interface settings should expose the zoom percentage preference.");
+        Assert(settingsXaml.Contains("x:Name=\"ZoomIndicatorDisplayModeComboBox\"", StringComparison.Ordinal), "Interface settings should let users choose percentage or multiplier zoom text.");
+        Assert(settingsXaml.Contains("适应窗口”的默认大小为 1.00×", StringComparison.Ordinal), "Interface settings should explain that multiplier mode is relative to the fitted view.");
         Assert(FileAssociationService.SupportedExtensions.Contains(".gif"), "File association extensions should include GIF.");
         Assert(FileAssociationService.SupportedExtensions.All(extension => ImageCatalog.IsSupportedStillImagePath("sample" + extension)), "File association extensions should be supported image extensions.");
     }
@@ -1000,6 +1340,12 @@ internal static class Program
         Assert(xaml.Contains("x:Name=\"CancelFolderLoadButton\"", StringComparison.Ordinal), "Main window should expose scan cancellation.");
         Assert(xaml.Contains("x:Name=\"CatalogScanPanel\"", StringComparison.Ordinal), "Main window should expose background catalog progress.");
         Assert(xaml.Contains("x:Name=\"QuickSearchOverlay\"", StringComparison.Ordinal), "Main window should expose the hidden quick-search overlay.");
+        Assert(xaml.Contains("x:Name=\"ZoomIndicator\"", StringComparison.Ordinal), "Main window should expose a transient zoom indicator.");
+        Assert(xaml.Contains("x:Name=\"ZoomIndicatorText\"", StringComparison.Ordinal), "Zoom indicator should expose its current scale text.");
+        Assert(xaml.Contains("Text=\"100%\"", StringComparison.Ordinal), "Zoom indicator should start with a percentage value.");
+        Assert(code.Contains("ZoomIndicatorTimer_Tick", StringComparison.Ordinal), "Zoom indicator should fade after zooming stops.");
+        Assert(code.Contains("FormatZoomScale", StringComparison.Ordinal), "Zoom indicator should format the current scale as a percentage.");
+        Assert(code.Contains("打开用时", StringComparison.Ordinal), "Main window should distinguish real image load time from directory indexing time.");
         Assert(!xaml.Contains("x:Name=\"DirectoryStatsPanel\"", StringComparison.Ordinal), "Thumbnail sidebar should not contain the removed directory statistics panel.");
         Assert(!code.Contains("StartDirectoryStatsUpdate", StringComparison.Ordinal), "Main window should not run the removed directory statistics background task.");
         Assert(xaml.Contains("x:Name=\"QuickSearchTextBox\"", StringComparison.Ordinal), "Quick search should expose a dedicated text input.");
@@ -1100,6 +1446,29 @@ internal static class Program
 
         Assert(scanPanel is not null && scanPanel.Visibility == Visibility.Collapsed, "Background scan progress should start hidden.");
         Assert(quickSearchOverlay is not null && quickSearchOverlay.Visibility == Visibility.Collapsed, "Quick search should stay hidden until its shortcut is pressed.");
+
+        var formatZoomScale = typeof(MainWindow).GetMethod(
+            "FormatZoomScale",
+            BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("FormatZoomScale was not found.");
+        Assert(
+            string.Equals(
+                formatZoomScale.Invoke(null, [0.15, ZoomIndicatorDisplayMode.Percentage, 0.15]) as string,
+                "15%",
+                StringComparison.Ordinal),
+            "Percentage zoom mode should show the absolute image scale.");
+        Assert(
+            string.Equals(
+                formatZoomScale.Invoke(null, [0.15, ZoomIndicatorDisplayMode.Multiplier, 0.15]) as string,
+                "1.00×",
+                StringComparison.Ordinal),
+            "Multiplier zoom mode should show fitted view as 1.00×.");
+        Assert(
+            string.Equals(
+                formatZoomScale.Invoke(null, [0.1725, ZoomIndicatorDisplayMode.Multiplier, 0.15]) as string,
+                "1.15×",
+                StringComparison.Ordinal),
+            "Multiplier zoom mode should show magnification relative to fitted view.");
 
         var shortcutSettings = (ShortcutSettings)(typeof(MainWindow).GetField(
             "_shortcutSettings",
@@ -1798,6 +2167,62 @@ internal static class Program
             $"full {document.PixelWidth} x {document.PixelHeight} in {loadStopwatch.ElapsedMilliseconds} ms");
     }
 
+    private static void AssertExternalLargeImageSafetyPreview(string path)
+    {
+        if (!File.Exists(path))
+        {
+            throw new FileNotFoundException("External large-image smoke sample does not exist.", path);
+        }
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+        Assert(
+            ImageLoader.RequiresSafetyPreview(path, cts.Token),
+            "External BigTIFF should be detected as oversized even when its extension is incorrect.");
+
+        var stopwatch = Stopwatch.StartNew();
+        var document = ImageLoader.LoadPreviewDocument(
+            path,
+            maxWidth: 1_920,
+            maxHeight: 1_080,
+            cts.Token,
+            LargeImagePolicy.DefaultPreviewMaximumSide);
+        stopwatch.Stop();
+
+        Assert(document.IsLargeImagePreview, "External large image should remain marked as a safety preview.");
+        Assert(
+            LargeImagePolicy.GetPixelCount(document.PixelWidth, document.PixelHeight)
+                > LargeImagePolicy.FullResolutionPixelLimit,
+            "External large-image metadata should retain the original oversized dimensions.");
+        Assert(
+            Math.Max(document.Bitmap.PixelWidth, document.Bitmap.PixelHeight)
+                <= LargeImagePolicy.DefaultPreviewMaximumSide,
+            "External large-image bitmap should stay inside the standard safety-preview tier.");
+
+        var cachedDocument = ImageLoader.CreatePreviewDocument(path, document.Bitmap, cts.Token);
+        Assert(cachedDocument.IsLargeImagePreview, "Cached BigTIFF previews should retain the safety-preview state.");
+        Assert(
+            cachedDocument.FormatName.Contains("金字塔安全预览", StringComparison.Ordinal),
+            "Cached BigTIFF previews should retain their pyramid-preview format label.");
+
+        var fullResolutionRejected = false;
+        try
+        {
+            _ = ImageLoader.Load(path, cts.Token);
+        }
+        catch (InvalidDataException)
+        {
+            fullResolutionRejected = true;
+        }
+
+        Assert(fullResolutionRejected, "External BigTIFF should be rejected before full-resolution decoding.");
+
+        Console.WriteLine(
+            $"External large-image preview passed: {document.FileName} => "
+            + $"source {document.PixelWidth} x {document.PixelHeight}, "
+            + $"preview {document.Bitmap.PixelWidth} x {document.Bitmap.PixelHeight}, "
+            + $"{document.FormatName}; {stopwatch.ElapsedMilliseconds} ms");
+    }
+
     private static bool BitmapHasTransparency(BitmapSource bitmap)
     {
         BitmapSource source = bitmap.Format == PixelFormats.Bgra32 || bitmap.Format == PixelFormats.Pbgra32
@@ -1852,6 +2277,8 @@ internal static class Program
         public int VideoSampleCount { get; set; } = 8;
 
         public List<string> ExternalImages { get; } = [];
+
+        public List<string> LargeImages { get; } = [];
     }
 
     private sealed class ImmediateProgress<T>(Action<T> handler) : IProgress<T>

@@ -290,6 +290,26 @@
                                           Content="显示操作提示"
                                           Margin="0,16,0,0"
                                           Foreground="#DCE4EC" />
+                                <CheckBox x:Name="ShowZoomIndicatorCheckBox"
+                                          Content="缩放时显示比例"
+                                          Margin="0,16,0,0"
+                                          Foreground="#DCE4EC" />
+                                <TextBlock Text="缩放提示格式"
+                                           Foreground="#AEB8C4"
+                                           FontSize="12"
+                                           Margin="0,12,0,6" />
+                                <ComboBox x:Name="ZoomIndicatorDisplayModeComboBox"
+                                          HorizontalAlignment="Stretch"
+                                          SelectedValuePath="Tag"
+                                          IsEnabled="{Binding IsChecked, ElementName=ShowZoomIndicatorCheckBox}">
+                                    <ComboBoxItem Content="百分比（相对图片尺寸）" Tag="Percentage" />
+                                    <ComboBoxItem Content="相对倍数（适应窗口 = 1.00×）" Tag="Multiplier" />
+                                </ComboBox>
+                                <TextBlock Text="百分比：100% 表示当前图片或安全预览的原始显示尺寸。相对倍数：以“适应窗口”的默认大小为 1.00×，表示在默认视图基础上放大或缩小了多少。超大图片的百分比以安全预览为基准。"
+                                           Foreground="#8F9AA7"
+                                           FontSize="11"
+                                           Margin="0,7,0,0"
+                                           TextWrapping="Wrap" />
                                 <CheckBox x:Name="LoadFullResolutionWhenIdleCheckBox"
                                           Content="空闲时后台加载当前原图"
                                           Margin="0,16,0,0"

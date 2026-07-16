@@ -324,6 +324,30 @@
                 </StackPanel>
             </Border>
 
+            <Border x:Name="ZoomIndicator"
+                    AutomationProperties.LiveSetting="Polite"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Margin="14"
+                    MinWidth="66"
+                    Background="#D8101216"
+                    BorderBrush="#526070"
+                    BorderThickness="1"
+                    CornerRadius="9"
+                    Padding="12,7"
+                    Opacity="0"
+                    Visibility="Collapsed"
+                    IsHitTestVisible="False"
+                    Panel.ZIndex="50">
+                <TextBlock x:Name="ZoomIndicatorText"
+                           HorizontalAlignment="Center"
+                           Foreground="#F4F7FA"
+                           FontSize="14"
+                           FontWeight="SemiBold"
+                           Text="100%"
+                           TextWrapping="NoWrap" />
+            </Border>
+
             <Border x:Name="VideoBadge"
                     HorizontalAlignment="Left"
                     VerticalAlignment="Top"
