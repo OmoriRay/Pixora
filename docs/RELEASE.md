@@ -15,7 +15,15 @@
 - 默认压缩包：`publish\Pixora-win-x64.zip`
 - 许可证：MIT License
 
-公开运行环境应统一表述为：Windows 10 x64（最低支持 22H2）或 Windows 11 x64，并需要 .NET Desktop Runtime 9 x64。不要写成容易被理解为“只支持 Windows 10 22H2”的并列版本列表。
+公开运行环境应分行明确表述为：
+
+- Windows 10 x64：最低支持 22H2
+- Windows 11 x64
+- 需要 .NET Desktop Runtime 9 x64
+
+不要再写成“支持 Windows 10 22H2、Windows 11 x64”或类似并列版本列表，以免被理解为 Windows 10 仅支持某个特定版本，或误以为 Windows 10 不要求 x64。
+
+已经公开发布的 Release 默认保持不可变。较多功能、行为或解码能力改动必须升级补丁版本，例如从 `0.3.7` 升级到 `0.3.8`，重新构建、测试、打标签并创建新 Release；不要直接覆盖旧版本附件。只有同版本构建损坏、附件缺失等明确的发布事故，并且用户明确要求覆盖时，才可以替换现有附件，同时应在 Release 正文记录替换日期和原因。
 
 Release 配置关闭 PDB：
 

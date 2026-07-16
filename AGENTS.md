@@ -143,6 +143,8 @@ dotnet run --project tests\Pixora.SmokeTests\Pixora.SmokeTests.csproj -- --media
 - 文档改动可以单独提交；代码改动要附带测试或说明为什么不需要。
 - 版本发布建议使用 `vX.Y.Z` 标签，例如 `v0.3.0`。
 - GitHub Release 附件优先上传 `publish\Pixora-win-x64.zip`。
+- 已公开发布的 Release 默认保持不可变；较多功能或代码改动必须升级补丁版本并创建新 Release，例如从 `0.3.7` 升级到 `0.3.8`，不要覆盖旧版本附件。
+- 只有同版本构建损坏、附件缺失等明确的发布事故，并且用户明确要求覆盖时，才可以替换现有 Release 附件；替换后要在 Release 正文记录日期和原因。
 
 ## 隐私和仓库清理
 
