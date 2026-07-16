@@ -278,10 +278,39 @@ public static class FileAssociationService
 
     private static bool NeedsRegistrationRepair(string registeredCommand, string executablePath)
     {
-        return !string.Equals(
+        if (string.Equals(
             registeredCommand.Trim(),
             CreateOpenCommand(executablePath),
-            StringComparison.OrdinalIgnoreCase);
+            StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var registeredExecutablePath = GetExecutablePathFromOpenCommand(registeredCommand);
+        return string.IsNullOrWhiteSpace(registeredExecutablePath)
+            || !File.Exists(registeredExecutablePath);
+    }
+
+    private static string? GetExecutablePathFromOpenCommand(string registeredCommand)
+    {
+        var command = registeredCommand.Trim();
+        if (command.Length == 0)
+        {
+            return null;
+        }
+
+        if (command[0] == '"')
+        {
+            var closingQuoteIndex = command.IndexOf('"', 1);
+            return closingQuoteIndex > 1
+                ? command[1..closingQuoteIndex]
+                : null;
+        }
+
+        var separatorIndex = command.IndexOfAny([' ', '\t']);
+        return separatorIndex > 0
+            ? command[..separatorIndex]
+            : command;
     }
 
     private static string CreateOpenCommand(string executablePath)

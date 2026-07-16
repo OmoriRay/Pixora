@@ -52,7 +52,7 @@ docs
 入口是 WPF 的 `App`。
 
 1. `App.OnStartup` 调用 `AppInfo.EnsureLocalDataMigrated()`。
-2. `FileAssociationService.TryRepairRegistrationForCurrentExecutable()` 只在已有 `Pixora.Image` 打开命令指向旧位置时更新为当前程序路径，不修改 Windows 默认应用选择。
+2. `FileAssociationService.TryRepairRegistrationForCurrentExecutable()` 只在已有 `Pixora.Image` 打开命令指向已不存在的程序文件时更新为当前路径；仍然有效的安装副本不会被 Debug 或其他副本覆盖，也不会修改 Windows 默认应用选择。
 3. 注册全局异常处理：`DispatcherUnhandledException`、`UnhandledException`、`UnobservedTaskException`。
 4. 根据设置初始化单实例协调；第二个进程优先把启动路径转发给已有窗口。
 5. 主窗口 `MainWindow` 初始化设置、快捷键、收藏、缓存和计时器。
@@ -433,7 +433,7 @@ Services\BatchCompressionSettings.cs
 - 写入 `HKCU\Software\RegisteredApplications`。
 - 把 `Pixora.Image` 加到各扩展名的 `OpenWithProgids`。
 - 调用 `SHChangeNotify` 通知 Shell 更新关联。
-- 启动时只在已有 `Pixora.Image` 打开命令指向旧位置时重写为当前 `Pixora.exe`；不会创建新的关联，也不会修改 Windows 的默认应用选择。
+- 启动时只在已有 `Pixora.Image` 打开命令指向已不存在的程序文件时重写为当前 `Pixora.exe`；仍然有效的安装副本不会被其他副本覆盖，也不会创建新关联或修改 Windows 默认应用选择。
 
 默认应用限制：
 

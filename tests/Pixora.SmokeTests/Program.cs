@@ -60,7 +60,7 @@ internal static class Program
         AssertTiffOverviewSelector();
         AssertWebImageExtensions();
         AssertMediaFormatRegistry();
-        AssertFileAssociationMoveRepair();
+        AssertFileAssociationMoveRepair(root);
         AssertMediaCatalogLoaderCancellation(imageFolder);
         AssertVideoMediaSupport(root);
         AssertCatalogSortModes(root);
@@ -669,7 +669,7 @@ internal static class Program
         Assert(!MediaFormatRegistry.IsSupportedMediaPath("sample.svg"), "Unsupported formats should stay out of the central registry.");
     }
 
-    private static void AssertFileAssociationMoveRepair()
+    private static void AssertFileAssociationMoveRepair(string root)
     {
         var method = typeof(FileAssociationService).GetMethod(
             "NeedsRegistrationRepair",
@@ -679,15 +679,30 @@ internal static class Program
             throw new InvalidOperationException("File association move repair check should exist.");
         }
 
-        const string currentExecutablePath = @"C:\Apps\Pixora\Pixora.exe";
+        var folder = Path.Combine(root, "test-output", "file-association-repair");
+        if (Directory.Exists(folder))
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+
+        var installedExecutablePath = Path.Combine(folder, "installed", "Pixora.exe");
+        var currentExecutablePath = Path.Combine(folder, "debug", "Pixora.exe");
+        Directory.CreateDirectory(Path.GetDirectoryName(installedExecutablePath)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(currentExecutablePath)!);
+        File.WriteAllBytes(installedExecutablePath, []);
+        File.WriteAllBytes(currentExecutablePath, []);
+
         var currentCommand = $"\"{currentExecutablePath}\" \"%1\"";
-        var staleCommand = "\"D:\\OldPixora\\Pixora.exe\" \"%1\"";
+        var installedCommand = $"\"{installedExecutablePath}\" \"%1\"";
+        var staleCommand = $"\"{Path.Combine(folder, "missing", "Pixora.exe")}\" \"%1\"";
 
         var currentNeedsRepair = (bool)method.Invoke(null, [currentCommand, currentExecutablePath])!;
+        var installedNeedsRepair = (bool)method.Invoke(null, [installedCommand, currentExecutablePath])!;
         var staleNeedsRepair = (bool)method.Invoke(null, [staleCommand, currentExecutablePath])!;
 
         Assert(!currentNeedsRepair, "The current Pixora command should not be rewritten on startup.");
-        Assert(staleNeedsRepair, "A moved Pixora executable should refresh its stale command path.");
+        Assert(!installedNeedsRepair, "A valid installed Pixora command should not be replaced by a debug copy.");
+        Assert(staleNeedsRepair, "A missing Pixora executable should refresh its stale command path.");
     }
 
     private static void AssertMediaCatalogLoaderCancellation(string imageFolder)
