@@ -15,9 +15,12 @@ public partial class ShortcutSettingsWindow : Window
     private readonly ShortcutSettings _source;
     private readonly ShortcutSettings _working;
     private readonly ViewerSettings _viewerSettings;
+    private readonly AppTheme _originalTheme;
     private ShortcutAction? _capturingAction;
     private KeyboardShortcut? _shortcutBeingReplaced;
     private bool _windowPlacementSaved;
+    private bool _themeSelectionReady;
+    private bool _themeSaved;
     private CancellationTokenSource? _thumbnailCacheInfoCts;
     private CancellationTokenSource? _thumbnailCacheMaintenanceCts;
     private List<ShortcutRow> _shortcutRows = [];
@@ -27,11 +30,14 @@ public partial class ShortcutSettingsWindow : Window
 
     public ShortcutSettingsWindow(ShortcutSettings settings, ViewerSettings viewerSettings)
     {
+        _originalTheme = viewerSettings.Theme;
         InitializeComponent();
         _source = settings;
         _working = settings.Clone();
         _viewerSettings = viewerSettings;
         ApplySavedWindowPlacement();
+        ThemeComboBox.SelectedValue = viewerSettings.Theme.ToString();
+        _themeSelectionReady = true;
         SavedFileOpenBehaviorComboBox.SelectedValue = viewerSettings.SavedFileOpenBehavior.ToString();
         ConfirmDeleteToRecycleBinCheckBox.IsChecked = viewerSettings.ConfirmDeleteToRecycleBin;
         OpenLastFolderOnStartupCheckBox.IsChecked = viewerSettings.OpenLastFolderOnStartup;
@@ -68,6 +74,11 @@ public partial class ShortcutSettingsWindow : Window
     {
         _thumbnailCacheInfoCts?.Cancel();
         _thumbnailCacheMaintenanceCts?.Cancel();
+        if (!_themeSaved)
+        {
+            ThemeManager.Apply(_originalTheme);
+        }
+
         if (_windowPlacementSaved)
         {
             return;
@@ -175,12 +186,19 @@ public partial class ShortcutSettingsWindow : Window
         ShortcutsPage.Visibility = showGeneral ? Visibility.Collapsed : Visibility.Visible;
         StatusText.Visibility = showGeneral ? Visibility.Collapsed : Visibility.Visible;
         ShortcutActionButtonsPanel.Visibility = showGeneral ? Visibility.Collapsed : Visibility.Visible;
-        ApplySettingsSearchFilter();
     }
 
     private void CacheSizingModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         UpdateCacheSizingModeUi();
+    }
+
+    private void ThemeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_themeSelectionReady)
+        {
+            ThemeManager.Apply(GetSelectedTheme());
+        }
     }
 
     private void UpdateCacheSizingModeUi()
@@ -219,64 +237,6 @@ public partial class ShortcutSettingsWindow : Window
             CacheSizingModeComboBox?.SelectedValue?.ToString(),
             "Automatic",
             StringComparison.Ordinal);
-    }
-
-    private void SettingsSearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        if (SettingsSearchPlaceholderText is null)
-        {
-            return;
-        }
-
-        SettingsSearchPlaceholderText.Visibility = string.IsNullOrEmpty(SettingsSearchTextBox.Text)
-            ? Visibility.Visible
-            : Visibility.Collapsed;
-        ApplySettingsSearchFilter();
-    }
-
-    private void ApplySettingsSearchFilter()
-    {
-        if (FileBehaviorSettingsSection is null
-            || InterfaceSettingsSection is null
-            || PerformanceSettingsSection is null
-            || DiagnosticsSettingsSection is null
-            || FileAssociationsSettingsSection is null
-            || ShortcutGrid is null)
-        {
-            return;
-        }
-
-        var query = SettingsSearchTextBox?.Text.Trim() ?? string.Empty;
-        SetSettingsSectionVisibility(
-            FileBehaviorSettingsSection,
-            query,
-            "文件 行为 保存 打开 删除 回收站 启动 目录 窗口 复用 缩放 监视 刷新");
-        SetSettingsSectionVisibility(
-            InterfaceSettingsSection,
-            query,
-            "界面 缩略图 单列 双列 搜索 序号 文件名 主窗口 最大化 统计 动图 操作提示 缩放 百分比 倍数 原图 安全预览");
-        SetSettingsSectionVisibility(
-            PerformanceSettingsSection,
-            query,
-            "性能 缓存 内存 原图 预览 缩略图 磁盘 清理 容量 自动 推荐 手动 预算 预加载 并发");
-        SetSettingsSectionVisibility(
-            DiagnosticsSettingsSection,
-            query,
-            "诊断 关于 版本 日志 路径 隐私 复制");
-        SetSettingsSectionVisibility(
-            FileAssociationsSettingsSection,
-            query,
-            "文件关联 默认应用 格式 注册 取消关联 高级");
-
-        ApplyShortcutRows();
-    }
-
-    private static void SetSettingsSectionVisibility(FrameworkElement section, string query, string keywords)
-    {
-        section.Visibility = string.IsNullOrWhiteSpace(query)
-            || keywords.Contains(query, StringComparison.CurrentCultureIgnoreCase)
-                ? Visibility.Visible
-                : Visibility.Collapsed;
     }
 
     private void RefreshRows()
@@ -357,14 +317,7 @@ public partial class ShortcutSettingsWindow : Window
 
     private void ApplyShortcutRows(ShortcutAction? selectedAction = null, KeyboardShortcut? selectedShortcut = null)
     {
-        var query = SettingsSearchTextBox?.Text.Trim() ?? string.Empty;
-        var sourceRows = string.IsNullOrWhiteSpace(query)
-            ? _shortcutRows
-            : _shortcutRows.Where(row =>
-                row.Category.Contains(query, StringComparison.CurrentCultureIgnoreCase)
-                || row.ActionName.Contains(query, StringComparison.CurrentCultureIgnoreCase)
-                || row.ShortcutText.Contains(query, StringComparison.CurrentCultureIgnoreCase)).ToList();
-        var rows = ArrangeShortcutRowsForDisplay(sourceRows, _shortcutGridColumnCount);
+        var rows = ArrangeShortcutRowsForDisplay(_shortcutRows, _shortcutGridColumnCount);
         var displayRows = CreateShortcutDisplayRows(rows, _shortcutGridColumnCount);
         ShortcutGrid.ItemsSource = displayRows;
         ShortcutGrid.SelectedItem = displayRows.FirstOrDefault(row =>
@@ -502,6 +455,7 @@ public partial class ShortcutSettingsWindow : Window
         {
             _source.Save();
             _viewerSettings.SavedFileOpenBehavior = GetSelectedSavedFileOpenBehavior();
+            _viewerSettings.Theme = GetSelectedTheme();
             _viewerSettings.ConfirmDeleteToRecycleBin = ConfirmDeleteToRecycleBinCheckBox.IsChecked == true;
             _viewerSettings.OpenLastFolderOnStartup = OpenLastFolderOnStartupCheckBox.IsChecked == true;
             _viewerSettings.ReuseExistingWindow = ReuseExistingWindowCheckBox.IsChecked == true;
@@ -530,6 +484,8 @@ public partial class ShortcutSettingsWindow : Window
                 ViewerSettings.DefaultThumbnailDiskCacheMegabytes);
             SaveWindowPlacement();
             _viewerSettings.Save();
+            ThemeManager.Apply(_viewerSettings.Theme);
+            _themeSaved = true;
             _windowPlacementSaved = true;
         }
         catch (Exception ex)
@@ -932,6 +888,14 @@ public partial class ShortcutSettingsWindow : Window
         return Enum.TryParse<SavedFileOpenBehavior>(selectedValue, out var behavior)
             ? behavior
             : SavedFileOpenBehavior.None;
+    }
+
+    private AppTheme GetSelectedTheme()
+    {
+        var selectedValue = ThemeComboBox.SelectedValue as string;
+        return Enum.TryParse<AppTheme>(selectedValue, out var theme)
+            ? theme
+            : AppTheme.Dark;
     }
 
     private QuickSearchMode GetSelectedQuickSearchMode()

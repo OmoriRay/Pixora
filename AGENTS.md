@@ -132,7 +132,7 @@ dotnet run --project tests\Pixora.SmokeTests\Pixora.SmokeTests.csproj -- --media
 - 缩略图栏单列/双列。
 - 收藏视图切换。
 - 设置窗口大小和位置持久化。
-- 快捷键搜索、修改、冲突提示和恢复默认。
+- 快捷键修改、冲突提示和恢复默认。
 - 图片压缩、批量压缩、裁剪和圆形裁剪。
 - GIF/APNG 这类动图不会显示“设为桌面壁纸”。
 

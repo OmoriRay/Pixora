@@ -4,12 +4,12 @@
         Title="压缩图片"
         Width="700"
         Height="560"
-        MinWidth="640"
-        MinHeight="520"
+        MinWidth="600"
+        MinHeight="440"
         WindowStartupLocation="CenterOwner"
-        ResizeMode="NoResize"
-        Background="#101216"
-        Foreground="#F2F5F7"
+        ResizeMode="CanResize"
+        Background="{DynamicResource AppBackgroundBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}"
         FontFamily="Microsoft YaHei UI"
         TextOptions.TextFormattingMode="Display"
         TextOptions.TextRenderingMode="ClearType"
@@ -18,20 +18,20 @@
         SnapsToDevicePixels="True">
     <Window.Resources>
         <Style x:Key="CardBorder" TargetType="{x:Type Border}">
-            <Setter Property="Background" Value="#171A20" />
-            <Setter Property="BorderBrush" Value="#2F3B48" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="8" />
             <Setter Property="Padding" Value="16" />
         </Style>
 
         <Style x:Key="SmallLabel" TargetType="{x:Type TextBlock}">
-            <Setter Property="Foreground" Value="#AEB8C4" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
             <Setter Property="FontSize" Value="12" />
         </Style>
 
         <Style x:Key="MetricValue" TargetType="{x:Type TextBlock}">
-            <Setter Property="Foreground" Value="#F2F5F7" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
             <Setter Property="FontSize" Value="18" />
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
@@ -42,7 +42,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type RepeatButton}">
                         <Border Height="6"
-                                Background="#65BFF2"
+                                Background="{DynamicResource AccentBrush}"
                                 CornerRadius="3"
                                 VerticalAlignment="Center" />
                     </ControlTemplate>
@@ -56,7 +56,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type RepeatButton}">
                         <Border Height="6"
-                                Background="#2B3542"
+                                Background="{DynamicResource BorderBrush}"
                                 CornerRadius="3"
                                 VerticalAlignment="Center" />
                     </ControlTemplate>
@@ -71,18 +71,18 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type Thumb}">
                         <Border x:Name="ThumbChrome"
-                                Background="#EAF7FF"
-                                BorderBrush="#65BFF2"
+                                Background="{DynamicResource SliderThumbBrush}"
+                                BorderBrush="{DynamicResource AccentBrush}"
                                 BorderThickness="2"
                                 CornerRadius="10" />
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ThumbChrome" Property="Background" Value="#FFFFFF" />
-                                <Setter TargetName="ThumbChrome" Property="BorderBrush" Value="#8FD7FF" />
+                                <Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource SliderThumbHoverBrush}" />
+                                <Setter TargetName="ThumbChrome" Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}" />
                             </Trigger>
                             <Trigger Property="IsDragging" Value="True">
-                                <Setter TargetName="ThumbChrome" Property="Background" Value="#CDEFFF" />
-                                <Setter TargetName="ThumbChrome" Property="BorderBrush" Value="#8FD7FF" />
+                                <Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource SliderThumbPressedBrush}" />
+                                <Setter TargetName="ThumbChrome" Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -92,7 +92,7 @@
 
         <Style x:Key="CompressionSlider" TargetType="{x:Type Slider}">
             <Setter Property="Height" Value="30" />
-            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="FocusVisualStyle" Value="{DynamicResource KeyboardFocusVisual}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type Slider}">
@@ -137,39 +137,42 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel>
                     <TextBlock x:Name="SourceText"
-                               Foreground="#F2F5F7"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
                                FontSize="16"
                                FontWeight="SemiBold"
                                TextTrimming="CharacterEllipsis" />
                     <TextBlock x:Name="DetailText"
                                Margin="0,6,0,0"
-                               Foreground="#AEB8C4"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
                                FontSize="13" />
                 </StackPanel>
                 <Border Grid.Column="1"
-                        Background="#213142"
+                        Background="{DynamicResource AccentSurfaceBrush}"
                         CornerRadius="8"
                         Padding="12,7"
                         VerticalAlignment="Center">
                     <TextBlock x:Name="FormatBadge"
-                               Foreground="#BFDFFF"
+                               Foreground="{DynamicResource AccentHoverBrush}"
                                FontWeight="SemiBold" />
                 </Border>
             </Grid>
         </Border>
 
-        <Grid Grid.Row="1"
-              Margin="0,14,0,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="1.1*" />
-                <ColumnDefinition Width="14" />
-                <ColumnDefinition Width="0.9*" />
-            </Grid.ColumnDefinitions>
+        <ScrollViewer Grid.Row="1"
+                      Margin="0,14,0,0"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+            <Grid Margin="0,0,4,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.1*" />
+                    <ColumnDefinition Width="14" />
+                    <ColumnDefinition Width="0.9*" />
+                </Grid.ColumnDefinitions>
 
-            <Border Style="{StaticResource CardBorder}">
-                <StackPanel>
+                <Border Style="{StaticResource CardBorder}">
+                    <StackPanel>
                     <TextBlock Text="压缩设置"
-                               Foreground="#F2F5F7"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
                                FontSize="15"
                                FontWeight="SemiBold" />
 
@@ -186,7 +189,7 @@
                                      Checked="FormatRadio_Checked" />
                     </StackPanel>
                     <TextBlock x:Name="FormatHelpText"
-                               Foreground="#AEB8C4"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
                                FontSize="12"
                                TextWrapping="Wrap"
                                Margin="0,8,0,0" />
@@ -196,7 +199,7 @@
                                Margin="0,18,0,7" />
                     <CheckBox x:Name="ResizeCheckBox"
                               Content="调整输出分辨率"
-                              Foreground="#F2F5F7"
+                              Foreground="{DynamicResource TextPrimaryBrush}"
                               Checked="ResizeCheckBox_Changed"
                               Unchecked="ResizeCheckBox_Changed" />
                     <Grid Margin="0,8,0,0"
@@ -210,22 +213,22 @@
                         <TextBox x:Name="WidthText"
                                  Height="34"
                                  Padding="8,0"
-                                 Background="#101216"
-                                 BorderBrush="#465160"
-                                 Foreground="#F2F5F7"
+                                 Background="{DynamicResource InputBrush}"
+                                 BorderBrush="{DynamicResource BorderStrongBrush}"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
                                  TextChanged="SizeTextBox_TextChanged" />
                         <TextBlock Grid.Column="1"
                                    Text="x"
-                                   Foreground="#AEB8C4"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
                                    VerticalAlignment="Center"
                                    TextAlignment="Center" />
                         <TextBox x:Name="HeightText"
                                  Grid.Column="2"
                                  Height="34"
                                  Padding="8,0"
-                                 Background="#101216"
-                                 BorderBrush="#465160"
-                                 Foreground="#F2F5F7"
+                                 Background="{DynamicResource InputBrush}"
+                                 BorderBrush="{DynamicResource BorderStrongBrush}"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
                                  TextChanged="SizeTextBox_TextChanged" />
                         <Button Grid.Column="3"
                                 Content="原始尺寸"
@@ -235,7 +238,7 @@
                     <CheckBox x:Name="KeepAspectCheckBox"
                               Content="锁定比例"
                               IsChecked="True"
-                              Foreground="#AEB8C4"
+                              Foreground="{DynamicResource TextSecondaryBrush}"
                               Margin="0,8,0,0" />
 
                     <TextBlock Text="JPEG 质量"
@@ -258,7 +261,7 @@
                                    Grid.Column="1"
                                    Margin="10,0,0,0"
                                    VerticalAlignment="Center"
-                                   Foreground="#F2F5F7"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"
                                    TextAlignment="Right"
                                    FontWeight="SemiBold" />
                     </Grid>
@@ -274,23 +277,23 @@
                         <TextBox x:Name="OutputPathText"
                                  Height="36"
                                  Padding="9,0"
-                                 Background="#101216"
-                                 BorderBrush="#465160"
-                                 Foreground="#F2F5F7"
+                                 Background="{DynamicResource InputBrush}"
+                                 BorderBrush="{DynamicResource BorderStrongBrush}"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
                                  TextChanged="OutputPathText_TextChanged" />
                         <Button Grid.Column="1"
                                 Content="浏览..."
                                 Margin="8,0,0,0"
                                 Click="BrowseButton_Click" />
                     </Grid>
-                </StackPanel>
-            </Border>
+                    </StackPanel>
+                </Border>
 
-            <Border Grid.Column="2"
-                    Style="{StaticResource CardBorder}">
-                <StackPanel>
+                <Border Grid.Column="2"
+                        Style="{StaticResource CardBorder}">
+                    <StackPanel>
                     <TextBlock Text="预计输出"
-                               Foreground="#F2F5F7"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
                                FontSize="15"
                                FontWeight="SemiBold" />
 
@@ -315,8 +318,8 @@
                         </StackPanel>
                     </Grid>
 
-                    <Border Background="#101216"
-                            BorderBrush="#293442"
+                    <Border Background="{DynamicResource SurfaceRaisedBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}"
                             BorderThickness="1"
                             CornerRadius="8"
                             Padding="14"
@@ -325,25 +328,26 @@
                             <TextBlock Text="预计大小"
                                        Style="{StaticResource SmallLabel}" />
                             <TextBlock x:Name="EstimatedSizeText"
-                                       Foreground="#8FD7FF"
+                                       Foreground="{DynamicResource AccentBrush}"
                                        FontSize="28"
                                        FontWeight="SemiBold"
                                        Margin="0,3,0,0" />
                             <TextBlock x:Name="CompressionRatioText"
-                                       Foreground="#AEB8C4"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
                                        FontSize="13"
                                        Margin="0,4,0,0" />
                         </StackPanel>
                     </Border>
 
                     <TextBlock x:Name="EstimateStatusText"
-                               Foreground="#AEB8C4"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
                                FontSize="12"
                                TextWrapping="Wrap"
                                Margin="0,14,0,0" />
-                </StackPanel>
-            </Border>
-        </Grid>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </ScrollViewer>
 
         <StackPanel Grid.Row="2"
                     Orientation="Horizontal"

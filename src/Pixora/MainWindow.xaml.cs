@@ -5590,6 +5590,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void ApplyViewerSettings()
     {
+        ThemeManager.Apply(_viewerSettings.Theme);
         ApplyRuntimeViewerSettings();
         var wasThumbnailSidebarVisible = _showThumbnailSidebar;
         _showThumbnailSidebar = _viewerSettings.ShowThumbnailSidebar;

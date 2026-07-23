@@ -23,6 +23,7 @@ public partial class App : Application
             !string.IsNullOrWhiteSpace(arg)
             && !string.Equals(arg, "--new-window", StringComparison.OrdinalIgnoreCase));
         var settings = ViewerSettings.Load();
+        ThemeManager.Apply(settings.Theme);
         if (settings.ReuseExistingWindow && !forceNewWindow)
         {
             try

@@ -4,11 +4,11 @@
         Title="批量压缩图片"
         Width="860"
         Height="660"
-        MinWidth="800"
-        MinHeight="600"
+        MinWidth="720"
+        MinHeight="520"
         WindowStartupLocation="CenterOwner"
-        Background="#101216"
-        Foreground="#F2F5F7"
+        Background="{DynamicResource AppBackgroundBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}"
         FontFamily="Microsoft YaHei UI"
         TextOptions.TextFormattingMode="Display"
         TextOptions.TextRenderingMode="ClearType"
@@ -18,14 +18,14 @@
         Closing="Window_Closing">
     <Window.Resources>
         <Style x:Key="SectionBorder" TargetType="{x:Type Border}">
-            <Setter Property="Background" Value="#171A20" />
-            <Setter Property="BorderBrush" Value="#2F3B48" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="8" />
             <Setter Property="Padding" Value="14" />
         </Style>
         <Style x:Key="LabelText" TargetType="{x:Type TextBlock}">
-            <Setter Property="Foreground" Value="#AEB8C4" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Margin" Value="0,0,0,6" />
         </Style>
@@ -36,7 +36,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type RepeatButton}">
                         <Border Height="6"
-                                Background="#65BFF2"
+                                Background="{DynamicResource AccentBrush}"
                                 CornerRadius="3"
                                 VerticalAlignment="Center" />
                     </ControlTemplate>
@@ -50,7 +50,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type RepeatButton}">
                         <Border Height="6"
-                                Background="#2B3542"
+                                Background="{DynamicResource BorderBrush}"
                                 CornerRadius="3"
                                 VerticalAlignment="Center" />
                     </ControlTemplate>
@@ -65,18 +65,18 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type Thumb}">
                         <Border x:Name="ThumbChrome"
-                                Background="#EAF7FF"
-                                BorderBrush="#65BFF2"
+                                Background="{DynamicResource SliderThumbBrush}"
+                                BorderBrush="{DynamicResource AccentBrush}"
                                 BorderThickness="2"
                                 CornerRadius="10" />
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ThumbChrome" Property="Background" Value="#FFFFFF" />
-                                <Setter TargetName="ThumbChrome" Property="BorderBrush" Value="#8FD7FF" />
+                                <Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource SliderThumbHoverBrush}" />
+                                <Setter TargetName="ThumbChrome" Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}" />
                             </Trigger>
                             <Trigger Property="IsDragging" Value="True">
-                                <Setter TargetName="ThumbChrome" Property="Background" Value="#CDEFFF" />
-                                <Setter TargetName="ThumbChrome" Property="BorderBrush" Value="#8FD7FF" />
+                                <Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource SliderThumbPressedBrush}" />
+                                <Setter TargetName="ThumbChrome" Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -86,7 +86,7 @@
 
         <Style x:Key="BatchSlider" TargetType="{x:Type Slider}">
             <Setter Property="Height" Value="30" />
-            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="FocusVisualStyle" Value="{DynamicResource KeyboardFocusVisual}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type Slider}">
@@ -116,9 +116,9 @@
         </Style>
 
         <Style TargetType="{x:Type ProgressBar}">
-            <Setter Property="Background" Value="#101216" />
-            <Setter Property="Foreground" Value="#65BFF2" />
-            <Setter Property="BorderBrush" Value="#2F3B48" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -142,18 +142,18 @@
         </Style>
 
         <Style TargetType="{x:Type ListBox}">
-            <Setter Property="Background" Value="#101216" />
-            <Setter Property="BorderBrush" Value="#2F3B48" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Foreground" Value="#DCE4EC" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBodyBrush}" />
             <Setter Property="Padding" Value="4" />
-            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="FocusVisualStyle" Value="{DynamicResource KeyboardFocusVisual}" />
         </Style>
 
         <Style TargetType="{x:Type ListBoxItem}">
-            <Setter Property="Foreground" Value="#DCE4EC" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBodyBrush}" />
             <Setter Property="Padding" Value="8,5" />
-            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="FocusVisualStyle" Value="{DynamicResource KeyboardFocusVisual}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type ListBoxItem}">
@@ -165,11 +165,11 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ItemChrome" Property="Background" Value="#1B2632" />
+                                <Setter TargetName="ItemChrome" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="ItemChrome" Property="Background" Value="#2D4A62" />
-                                <Setter Property="Foreground" Value="#FFFFFF" />
+                                <Setter TargetName="ItemChrome" Property="Background" Value="{DynamicResource SelectionBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource SelectionTextBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -288,7 +288,7 @@
                                     ValueChanged="QualitySlider_ValueChanged" />
                             <TextBlock x:Name="QualityText"
                                        Grid.Column="1"
-                                       Foreground="#F2F5F7"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
                                        FontWeight="SemiBold"
                                        VerticalAlignment="Center"
                                        TextAlignment="Right" />
@@ -310,7 +310,7 @@
                                      Text="1920" />
                             <TextBlock Grid.Column="1"
                                        Text="x"
-                                       Foreground="#AEB8C4"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
                                        VerticalAlignment="Center"
                                        TextAlignment="Center" />
                             <TextBox x:Name="MaxHeightText"
@@ -337,7 +337,7 @@
                     </WrapPanel>
                     <TextBlock Text="最大宽高填 0 表示不限制；默认只缩小，不放大。"
                                Grid.Row="1"
-                               Foreground="#AEB8C4"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
                                Margin="0,8,0,0"
                                TextWrapping="Wrap" />
                 </Grid>
@@ -359,13 +359,13 @@
                 </Grid.ColumnDefinitions>
 
                 <TextBlock x:Name="StatusText"
-                           Foreground="#F2F5F7"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
                            FontSize="14"
                            FontWeight="SemiBold"
                            Text="准备就绪" />
                 <TextBlock x:Name="SummaryText"
                            Grid.Column="1"
-                           Foreground="#AEB8C4"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
                            FontSize="13" />
 
                 <ProgressBar x:Name="ProgressBar"

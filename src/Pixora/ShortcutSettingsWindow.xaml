@@ -7,8 +7,8 @@
         MinWidth="560"
         MinHeight="460"
         WindowStartupLocation="CenterOwner"
-        Background="#101216"
-        Foreground="#F2F5F7"
+        Background="{DynamicResource AppBackgroundBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}"
         FontFamily="Microsoft YaHei UI"
         TextOptions.TextFormattingMode="Display"
         TextOptions.TextRenderingMode="ClearType"
@@ -19,16 +19,16 @@
         Closing="Window_Closing">
     <Window.Resources>
         <Style x:Key="SettingsNavButton" TargetType="{x:Type RadioButton}">
-            <Setter Property="Foreground" Value="#AEB8C4" />
-            <Setter Property="Background" Value="#15191F" />
-            <Setter Property="BorderBrush" Value="#303A48" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}" />
             <Setter Property="Padding" Value="18,8" />
             <Setter Property="Margin" Value="0,0,6,0" />
             <Setter Property="MinWidth" Value="92" />
             <Setter Property="MinHeight" Value="38" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="FocusVisualStyle" Value="{DynamicResource KeyboardFocusVisual}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type RadioButton}">
@@ -46,31 +46,37 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter Property="Foreground" Value="#F2F5F7" />
-                                <Setter TargetName="ButtonChrome" Property="Background" Value="#213142" />
-                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="#65BFF2" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="{DynamicResource AccentSurfaceBrush}" />
+                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ButtonChrome" Property="Background" Value="#1B222B" />
-                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="#65BFF2" />
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                             </Trigger>
                             <MultiTrigger>
                                 <MultiTrigger.Conditions>
                                     <Condition Property="IsChecked" Value="True" />
                                     <Condition Property="IsMouseOver" Value="True" />
                                 </MultiTrigger.Conditions>
-                                <Setter TargetName="ButtonChrome" Property="Background" Value="#213142" />
-                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="#65BFF2" />
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="{DynamicResource AccentSurfaceBrush}" />
+                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                             </MultiTrigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Foreground" Value="#788290" />
-                                <Setter TargetName="ButtonChrome" Property="Background" Value="#141820" />
-                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="#2A3340" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="{DynamicResource SurfaceDisabledBrush}" />
+                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+        <Style x:Key="SettingsSection" TargetType="{x:Type Border}">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="Padding" Value="4,4,4,18" />
         </Style>
     </Window.Resources>
 
@@ -85,14 +91,10 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
 
             <Border HorizontalAlignment="Left"
-                    Background="#12161D"
-                    BorderBrush="#273241"
+                    Background="{DynamicResource SurfaceRaisedBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
                     BorderThickness="1"
                     CornerRadius="8"
                     Padding="4">
@@ -111,61 +113,10 @@
                 </StackPanel>
             </Border>
 
-            <Border Grid.Column="1"
-                    Width="250"
-                    Height="38"
-                    HorizontalAlignment="Right"
-                    Background="#15191F"
-                    BorderBrush="#303A48"
-                    BorderThickness="1"
-                    CornerRadius="9"
-                    Padding="11,0">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="26" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="&#xE721;"
-                               FontFamily="Segoe MDL2 Assets"
-                               FontSize="14"
-                               Foreground="#8290A0"
-                               VerticalAlignment="Center" />
-                    <Grid Grid.Column="1">
-                        <TextBox x:Name="SettingsSearchTextBox"
-                                 Background="Transparent"
-                                 BorderThickness="0"
-                                 Foreground="#F2F5F7"
-                                 CaretBrush="#65BFF2"
-                                 FontSize="13"
-                                 Padding="0"
-                                 VerticalContentAlignment="Center"
-                                 TextChanged="SettingsSearchTextBox_TextChanged">
-                            <TextBox.Template>
-                                <ControlTemplate TargetType="{x:Type TextBox}">
-                                    <ScrollViewer x:Name="PART_ContentHost"
-                                                  Background="Transparent"
-                                                  BorderThickness="0"
-                                                  Focusable="False"
-                                                  HorizontalScrollBarVisibility="Hidden"
-                                                  VerticalScrollBarVisibility="Hidden" />
-                                </ControlTemplate>
-                            </TextBox.Template>
-                        </TextBox>
-                        <TextBlock x:Name="SettingsSearchPlaceholderText"
-                                   Text="搜索设置或快捷键"
-                                   Foreground="#748294"
-                                   FontSize="13"
-                                   VerticalAlignment="Center"
-                                   IsHitTestVisible="False" />
-                    </Grid>
-                </Grid>
-            </Border>
-
             <Grid Grid.Row="1"
-                  Grid.ColumnSpan="2"
                   ClipToBounds="True">
                 <ScrollViewer x:Name="GeneralPage"
-                              Background="#101216"
+                              Background="{DynamicResource AppBackgroundBrush}"
                               ClipToBounds="True"
                               VerticalScrollBarVisibility="Auto"
                               TextOptions.TextRenderingMode="Grayscale"
@@ -183,18 +134,14 @@
                         </Grid.RowDefinitions>
 
                         <Border x:Name="FileBehaviorSettingsSection"
-                                Background="#171A20"
-                                BorderBrush="#2F3B48"
-                                BorderThickness="1"
-                                CornerRadius="8"
-                                Padding="16">
+                                Style="{StaticResource SettingsSection}">
                             <StackPanel>
                                 <TextBlock Text="文件行为"
-                                           Foreground="#F2F5F7"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"
                                            FontSize="15"
                                            FontWeight="SemiBold" />
                                 <TextBlock Text="保存后打开"
-                                           Foreground="#AEB8C4"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
                                            FontSize="12"
                                            Margin="0,14,0,6" />
                                 <ComboBox x:Name="SavedFileOpenBehaviorComboBox"
@@ -207,29 +154,29 @@
                                 <CheckBox x:Name="ConfirmDeleteToRecycleBinCheckBox"
                                           Content="按 Del 删除到回收站前弹出确认"
                                           Margin="0,16,0,0"
-                                          Foreground="#DCE4EC" />
+                                          Foreground="{DynamicResource TextBodyBrush}" />
                                 <CheckBox x:Name="OpenLastFolderOnStartupCheckBox"
                                           Content="启动时自动打开上次目录"
                                           Margin="0,16,0,0"
-                                          Foreground="#DCE4EC" />
+                                          Foreground="{DynamicResource TextBodyBrush}" />
                                 <CheckBox x:Name="ReuseExistingWindowCheckBox"
                                           Content="双击图片时复用已有 Pixora 窗口（重启后生效）"
                                           Margin="0,16,0,0"
-                                          Foreground="#DCE4EC" />
+                                          Foreground="{DynamicResource TextBodyBrush}" />
                                 <CheckBox x:Name="KeepViewStateWhenNavigatingCheckBox"
                                           Content="切换图片时保持当前缩放和位置"
                                           Margin="0,16,0,0"
-                                          Foreground="#DCE4EC" />
+                                          Foreground="{DynamicResource TextBodyBrush}" />
                                 <CheckBox x:Name="WatchFolderChangesCheckBox"
                                           Content="自动刷新外部新增、重命名或删除的文件"
                                           Margin="0,16,0,0"
-                                          Foreground="#DCE4EC" />
+                                          Foreground="{DynamicResource TextBodyBrush}" />
                                 <TextBlock Text="打开目录"
-                                           Foreground="#AEB8C4"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
                                            FontSize="12"
                                            Margin="0,18,0,6" />
                                 <TextBlock Text="使用系统文件对话框。进入目标目录后直接点打开即可打开当前目录；也可以选中任意图片或视频，程序会打开它所在的目录。仍可把目录拖入主窗口直接打开。"
-                                           Foreground="#DCE4EC"
+                                           Foreground="{DynamicResource TextBodyBrush}"
                                            FontSize="12"
                                            LineHeight="19"
                                            TextWrapping="Wrap" />
@@ -237,27 +184,40 @@
                         </Border>
 
                         <Border x:Name="InterfaceSettingsSection"
-                                Background="#171A20"
                                 Grid.Column="2"
-                                BorderBrush="#2F3B48"
-                                BorderThickness="1"
-                                CornerRadius="8"
-                                Padding="16">
+                                Style="{StaticResource SettingsSection}">
                             <StackPanel>
                                 <TextBlock Text="界面"
-                                           Foreground="#F2F5F7"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"
                                            FontSize="15"
                                            FontWeight="SemiBold" />
+                                <TextBlock Text="外观主题"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           FontSize="12"
+                                           Margin="0,14,0,6" />
+                                <ComboBox x:Name="ThemeComboBox"
+                                          HorizontalAlignment="Stretch"
+                                          SelectedValuePath="Tag"
+                                          AutomationProperties.Name="外观主题"
+                                          SelectionChanged="ThemeComboBox_SelectionChanged">
+                                    <ComboBoxItem Content="深色" Tag="Dark" />
+                                    <ComboBoxItem Content="亮色" Tag="Light" />
+                                </ComboBox>
+                                <TextBlock Text="切换后立即预览，保存后下次启动继续使用。"
+                                           Foreground="{DynamicResource TextMutedBrush}"
+                                           FontSize="11"
+                                           Margin="0,7,0,0"
+                                           TextWrapping="Wrap" />
                                 <CheckBox x:Name="ShowThumbnailSidebarCheckBox"
                                           Content="启动时显示右侧缩略图栏"
                                           Margin="0,14,0,0"
-                                          Foreground="#DCE4EC" />
+                                          Foreground="{DynamicResource TextBodyBrush}" />
                                 <CheckBox x:Name="UseDoubleThumbnailColumnsCheckBox"
                                           Content="使用双列缩略图"
                                           Margin="0,16,0,0"
-                                          Foreground="#DCE4EC" />
+                                          Foreground="{DynamicResource TextBodyBrush}" />
                                 <TextBlock Text="快速搜索默认方式"
-                                           Foreground="#AEB8C4"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
                                            FontSize="12"
                                            Margin="0,16,0,6" />
                                 <ComboBox x:Name="QuickSearchModeComboBox"
@@ -269,33 +229,33 @@
                                 <CheckBox x:Name="ShowQuickSearchOnStartupCheckBox"
                                           Content="启动时自动显示快速搜索"
                                           Margin="0,16,0,0"
-                                          Foreground="#DCE4EC" />
+                                          Foreground="{DynamicResource TextBodyBrush}" />
                                 <CheckBox x:Name="HideQuickSearchAfterJumpCheckBox"
                                           Content="跳转成功后自动收起快速搜索"
                                           Margin="0,16,0,0"
-                                          Foreground="#DCE4EC" />
+                                          Foreground="{DynamicResource TextBodyBrush}" />
                                 <CheckBox x:Name="RememberMainWindowPlacementCheckBox"
                                           Content="记住主窗口大小、位置和最大化状态"
                                           Margin="0,16,0,0"
-                                          Foreground="#DCE4EC" />
+                                          Foreground="{DynamicResource TextBodyBrush}" />
                                 <CheckBox x:Name="StartMainWindowMaximizedCheckBox"
                                           Content="启动时始终最大化主窗口"
                                           Margin="0,16,0,0"
-                                          Foreground="#DCE4EC" />
+                                          Foreground="{DynamicResource TextBodyBrush}" />
                                 <CheckBox x:Name="ShowAnimationControlsCheckBox"
                                           Content="显示动图播放控制"
                                           Margin="0,16,0,0"
-                                          Foreground="#DCE4EC" />
+                                          Foreground="{DynamicResource TextBodyBrush}" />
                                 <CheckBox x:Name="ShowOperationNotificationsCheckBox"
                                           Content="显示操作提示"
                                           Margin="0,16,0,0"
-                                          Foreground="#DCE4EC" />
+                                          Foreground="{DynamicResource TextBodyBrush}" />
                                 <CheckBox x:Name="ShowZoomIndicatorCheckBox"
                                           Content="缩放时显示比例"
                                           Margin="0,16,0,0"
-                                          Foreground="#DCE4EC" />
+                                          Foreground="{DynamicResource TextBodyBrush}" />
                                 <TextBlock Text="缩放提示格式"
-                                           Foreground="#AEB8C4"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
                                            FontSize="12"
                                            Margin="0,12,0,6" />
                                 <ComboBox x:Name="ZoomIndicatorDisplayModeComboBox"
@@ -306,14 +266,14 @@
                                     <ComboBoxItem Content="相对倍数（适应窗口 = 1.00×）" Tag="Multiplier" />
                                 </ComboBox>
                                 <TextBlock Text="百分比：100% 表示当前图片或安全预览的原始显示尺寸。相对倍数：以“适应窗口”的默认大小为 1.00×，表示在默认视图基础上放大或缩小了多少。超大图片的百分比以安全预览为基准。"
-                                           Foreground="#8F9AA7"
+                                           Foreground="{DynamicResource TextMutedBrush}"
                                            FontSize="11"
                                            Margin="0,7,0,0"
                                            TextWrapping="Wrap" />
                                 <CheckBox x:Name="LoadFullResolutionWhenIdleCheckBox"
                                           Content="空闲时后台加载当前原图"
                                           Margin="0,16,0,0"
-                                          Foreground="#DCE4EC" />
+                                          Foreground="{DynamicResource TextBodyBrush}" />
                             </StackPanel>
                         </Border>
 
@@ -321,18 +281,14 @@
                                 Grid.Row="1"
                                 Grid.Column="2"
                                 Margin="0,14,0,0"
-                                Background="#171A20"
-                                BorderBrush="#2F3B48"
-                                BorderThickness="1"
-                                CornerRadius="8"
-                                Padding="16">
+                                Style="{StaticResource SettingsSection}">
                             <StackPanel>
                                 <TextBlock Text="性能与缓存"
-                                           Foreground="#F2F5F7"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"
                                            FontSize="15"
                                            FontWeight="SemiBold" />
                                 <TextBlock Text="缓存模式"
-                                           Foreground="#AEB8C4"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
                                            FontSize="12"
                                            Margin="0,14,0,6" />
                                 <ComboBox x:Name="CacheSizingModeComboBox"
@@ -346,18 +302,18 @@
                                 <Border x:Name="AutomaticCacheSummaryPanel"
                                         Margin="0,10,0,0"
                                         Padding="12,10"
-                                        Background="#142733"
-                                        BorderBrush="#315B70"
+                                        Background="{DynamicResource InfoSurfaceBrush}"
+                                        BorderBrush="{DynamicResource InfoBorderBrush}"
                                         BorderThickness="1"
                                         CornerRadius="7">
                                     <StackPanel>
                                         <TextBlock Text="已根据本机硬件自动配置"
-                                                   Foreground="#77CFFC"
+                                                   Foreground="{DynamicResource InfoTitleBrush}"
                                                    FontSize="12"
                                                    FontWeight="SemiBold" />
                                         <TextBlock x:Name="AutomaticCacheSummaryText"
-                                                   Margin="0,4,0,0"
-                                                   Foreground="#C8D5DE"
+                                           Margin="0,4,0,0"
+                                                   Foreground="{DynamicResource InfoTextBrush}"
                                                    FontSize="11"
                                                    AutomationProperties.Name="当前自动缓存配置"
                                                    AutomationProperties.LiveSetting="Polite"
@@ -367,7 +323,7 @@
                                 <StackPanel x:Name="ManualCacheSettingsPanel"
                                             Margin="0,2,0,0">
                                     <TextBlock Text="手动原图缓存"
-                                               Foreground="#AEB8C4"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
                                                FontSize="12"
                                                Margin="0,12,0,6" />
                                     <ComboBox x:Name="MainImageCacheComboBox"
@@ -381,7 +337,7 @@
                                         <ComboBoxItem Content="8 GB" Tag="8192" />
                                     </ComboBox>
                                     <TextBlock Text="手动预览缓存"
-                                               Foreground="#AEB8C4"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
                                                FontSize="12"
                                                Margin="0,12,0,6" />
                                     <ComboBox x:Name="DisplayPreviewCacheComboBox"
@@ -398,13 +354,13 @@
                                 <CheckBox x:Name="LowMemoryProtectionCheckBox"
                                           Content="低内存时自动减少后台加载和缓存"
                                           Margin="0,16,0,0"
-                                          Foreground="#DCE4EC" />
+                                          Foreground="{DynamicResource TextBodyBrush}" />
                                 <CheckBox x:Name="ThumbnailDiskCacheCheckBox"
                                           Content="使用缩略图磁盘缓存"
                                           Margin="0,16,0,0"
-                                          Foreground="#DCE4EC" />
+                                          Foreground="{DynamicResource TextBodyBrush}" />
                                 <TextBlock Text="缩略图磁盘缓存上限"
-                                           Foreground="#AEB8C4"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
                                            FontSize="12"
                                            Margin="0,12,0,6" />
                                 <ComboBox x:Name="ThumbnailDiskCacheSizeComboBox"
@@ -424,7 +380,7 @@
                                             Click="ClearThumbnailDiskCacheButton_Click" />
                                 </WrapPanel>
                                 <TextBlock x:Name="ThumbnailDiskCachePathText"
-                                           Foreground="#AEB8C4"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
                                            FontSize="11"
                                            AutomationProperties.LiveSetting="Polite"
                                            TextWrapping="Wrap"
@@ -436,24 +392,20 @@
                                 Grid.Row="1"
                                 Grid.Column="0"
                                 Margin="0,14,0,0"
-                                Background="#171A20"
-                                BorderBrush="#2F3B48"
-                                BorderThickness="1"
-                                CornerRadius="8"
-                                Padding="16">
+                                Style="{StaticResource SettingsSection}">
                             <StackPanel>
                                 <TextBlock Text="诊断与关于"
-                                           Foreground="#F2F5F7"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"
                                            FontSize="15"
                                            FontWeight="SemiBold" />
                                 <TextBlock x:Name="AppVersionText"
                                            Margin="0,14,0,0"
-                                           Foreground="#DCE4EC"
+                                           Foreground="{DynamicResource TextBodyBrush}"
                                            FontSize="12" />
                                 <CheckBox x:Name="IncludePrivatePathsInDiagnosticsCheckBox"
                                           Content="诊断信息包含本机完整路径（默认隐藏）"
                                           Margin="0,14,0,0"
-                                          Foreground="#DCE4EC" />
+                                          Foreground="{DynamicResource TextBodyBrush}" />
                                 <WrapPanel Orientation="Horizontal"
                                            Margin="0,14,0,0">
                                     <Button Content="打开错误日志位置"
@@ -470,11 +422,7 @@
                         <Border x:Name="FileAssociationsSettingsSection"
                                 Grid.Row="2"
                                 Grid.ColumnSpan="3"
-                                Background="#171A20"
-                                BorderBrush="#2F3B48"
-                                BorderThickness="1"
-                                CornerRadius="8"
-                                Padding="16"
+                                Style="{StaticResource SettingsSection}"
                                 Margin="0,14,0,0">
                             <Grid>
                                 <Grid.RowDefinitions>
@@ -483,13 +431,13 @@
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
                                 <TextBlock Text="文件关联"
-                                           Foreground="#F2F5F7"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"
                                            FontSize="15"
                                            FontWeight="SemiBold" />
                                 <TextBlock Text="先尝试直接把常见图片格式设为默认应用；当前 Windows 不支持时，会打开默认应用设置页。"
                                            Grid.Row="1"
                                            Margin="0,8,0,0"
-                                           Foreground="#DCE4EC"
+                                           Foreground="{DynamicResource TextBodyBrush}"
                                            FontSize="12"
                                            TextWrapping="Wrap" />
                                 <StackPanel Grid.Row="2"
@@ -522,14 +470,14 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <Border Background="#171A20"
-                            BorderBrush="#2F3B48"
+                    <Border Background="{DynamicResource SurfaceBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}"
                             BorderThickness="1"
                             CornerRadius="8"
                             Padding="1">
                         <ListBox x:Name="ShortcutGrid"
-                                 Background="#171A20"
-                                 Foreground="#F2F5F7"
+                                 Background="{DynamicResource SurfaceBrush}"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
                                  BorderThickness="0"
                                  FontFamily="Microsoft YaHei UI"
                                  FontSize="13"
@@ -555,11 +503,11 @@
                                     <Setter Property="MinHeight" Value="30" />
                                     <Setter Property="Margin" Value="0,0,8,4" />
                                     <Setter Property="Padding" Value="10,4" />
-                                    <Setter Property="Background" Value="#171A20" />
-                                    <Setter Property="Foreground" Value="#F2F5F7" />
+                                    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
                                     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                                     <Setter Property="VerticalContentAlignment" Value="Center" />
-                                    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                                    <Setter Property="FocusVisualStyle" Value="{DynamicResource KeyboardFocusVisual}" />
                                     <Setter Property="Template">
                                         <Setter.Value>
                                             <ControlTemplate TargetType="{x:Type ListBoxItem}">
@@ -571,14 +519,14 @@
                                                 </Border>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="ItemsControl.AlternationIndex" Value="1">
-                                                        <Setter TargetName="ItemChrome" Property="Background" Value="#1C2028" />
+                                                        <Setter TargetName="ItemChrome" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
                                                     </Trigger>
                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="ItemChrome" Property="Background" Value="#223142" />
+                                                        <Setter TargetName="ItemChrome" Property="Background" Value="{DynamicResource AccentSurfaceHoverBrush}" />
                                                     </Trigger>
                                                     <Trigger Property="IsSelected" Value="True">
-                                                        <Setter Property="Foreground" Value="#FFFFFF" />
-                                                        <Setter TargetName="ItemChrome" Property="Background" Value="#2D4A62" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource SelectionTextBrush}" />
+                                                        <Setter TargetName="ItemChrome" Property="Background" Value="{DynamicResource SelectionBrush}" />
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
@@ -598,7 +546,7 @@
                                                    Width="30"
                                                    Margin="0,0,8,0"
                                                    VerticalAlignment="Center"
-                                                   Foreground="#8FA0B2"
+                                                   Foreground="{DynamicResource TextMutedBrush}"
                                                    FontSize="11"
                                                    TextTrimming="CharacterEllipsis" />
                                         <TextBlock Grid.Column="1"
@@ -631,7 +579,7 @@
             <TextBlock x:Name="StatusText"
                        Margin="2,0,12,0"
                        VerticalAlignment="Center"
-                       Foreground="#AEB8C4"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
                        Text="选择一行后可以修改、添加或删除单个快捷键。"
                        TextTrimming="CharacterEllipsis"
                        Visibility="Collapsed" />

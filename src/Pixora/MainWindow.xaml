@@ -11,8 +11,8 @@
         Height="760"
         MinWidth="640"
         MinHeight="420"
-        Background="#101216"
-        Foreground="#F2F5F7"
+        Background="{DynamicResource AppBackgroundBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}"
         FontFamily="Microsoft YaHei UI"
         TextOptions.TextFormattingMode="Display"
         TextOptions.TextRenderingMode="ClearType"
@@ -31,30 +31,18 @@
         PreviewMouseWheel="Window_PreviewMouseWheel"
         StateChanged="Window_StateChanged">
     <Window.Resources>
-        <SolidColorBrush x:Key="MenuBackgroundBrush" Color="#242832" />
-        <SolidColorBrush x:Key="MenuBorderBrush" Color="#3A404C" />
-        <SolidColorBrush x:Key="MenuForegroundBrush" Color="#F2F5F7" />
-        <SolidColorBrush x:Key="MenuHoverBrush" Color="#313847" />
-        <SolidColorBrush x:Key="MenuDisabledForegroundBrush" Color="#788290" />
-
-        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#313847" />
-        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FFFFFF" />
-        <SolidColorBrush x:Key="{x:Static SystemColors.MenuBrushKey}" Color="#242832" />
-        <SolidColorBrush x:Key="{x:Static SystemColors.MenuTextBrushKey}" Color="#F2F5F7" />
-        <SolidColorBrush x:Key="{x:Static SystemColors.GrayTextBrushKey}" Color="#788290" />
-
         <DrawingBrush x:Key="CheckerBrush"
                       Viewport="0,0,32,32"
                       ViewportUnits="Absolute"
                       TileMode="Tile">
             <DrawingBrush.Drawing>
                 <DrawingGroup>
-                    <GeometryDrawing Brush="#171A20">
+                    <GeometryDrawing Brush="{DynamicResource ViewerCanvasBaseBrush}">
                         <GeometryDrawing.Geometry>
                             <RectangleGeometry Rect="0,0,32,32" />
                         </GeometryDrawing.Geometry>
                     </GeometryDrawing>
-                    <GeometryDrawing Brush="#20242C">
+                    <GeometryDrawing Brush="{DynamicResource ViewerCanvasTileBrush}">
                         <GeometryDrawing.Geometry>
                             <GeometryGroup>
                                 <RectangleGeometry Rect="0,0,16,16" />
@@ -67,9 +55,9 @@
         </DrawingBrush>
 
         <Style TargetType="{x:Type ContextMenu}">
-            <Setter Property="Background" Value="{StaticResource MenuBackgroundBrush}" />
-            <Setter Property="BorderBrush" Value="{StaticResource MenuBorderBrush}" />
-            <Setter Property="Foreground" Value="{StaticResource MenuForegroundBrush}" />
+            <Setter Property="Background" Value="{DynamicResource MenuBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource MenuBorderBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource MenuForegroundBrush}" />
             <Setter Property="FontFamily" Value="Microsoft YaHei UI" />
             <Setter Property="FontSize" Value="14" />
             <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
@@ -93,7 +81,7 @@
             </Setter>
         </Style>
         <Style TargetType="{x:Type MenuItem}">
-            <Setter Property="Foreground" Value="{StaticResource MenuForegroundBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource MenuForegroundBrush}" />
             <Setter Property="FontFamily" Value="Microsoft YaHei UI" />
             <Setter Property="FontSize" Value="14" />
             <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
@@ -105,35 +93,78 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type MenuItem}">
-                        <Border x:Name="MenuItemChrome"
-                                Background="{TemplateBinding Background}"
-                                CornerRadius="8"
-                                Padding="{TemplateBinding Padding}"
-                                SnapsToDevicePixels="True">
-                            <ContentPresenter ContentSource="Header"
-                                              RecognizesAccessKey="True" />
-                        </Border>
+                        <Grid>
+                            <Border x:Name="MenuItemChrome"
+                                    Background="{TemplateBinding Background}"
+                                    CornerRadius="8"
+                                    Padding="{TemplateBinding Padding}"
+                                    SnapsToDevicePixels="True">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <ContentPresenter ContentSource="Header"
+                                                      RecognizesAccessKey="True" />
+                                    <Path x:Name="SubmenuArrow"
+                                          Grid.Column="1"
+                                          Width="5"
+                                          Height="9"
+                                          Margin="20,0,0,0"
+                                          VerticalAlignment="Center"
+                                          Data="M 0 0 L 4 4.5 L 0 9 Z"
+                                          Fill="{TemplateBinding Foreground}"
+                                          Visibility="Collapsed" />
+                                </Grid>
+                            </Border>
+                            <Popup x:Name="PART_Popup"
+                                   AllowsTransparency="True"
+                                   Focusable="False"
+                                   HorizontalOffset="-4"
+                                   IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}"
+                                   Placement="Right"
+                                   PlacementTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}"
+                                   VerticalOffset="-4">
+                                <Border MinWidth="190"
+                                        Background="{DynamicResource MenuBackgroundBrush}"
+                                        BorderBrush="{DynamicResource MenuBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="4">
+                                    <ScrollViewer CanContentScroll="True"
+                                                  HorizontalScrollBarVisibility="Disabled"
+                                                  VerticalScrollBarVisibility="Auto">
+                                        <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" />
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="HasItems" Value="True">
+                                <Setter TargetName="SubmenuArrow" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsHighlighted" Value="True">
-                    <Setter Property="Background" Value="{StaticResource MenuHoverBrush}" />
+                    <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}" />
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Foreground" Value="{StaticResource MenuDisabledForegroundBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource MenuDisabledForegroundBrush}" />
                 </Trigger>
             </Style.Triggers>
         </Style>
         <Style TargetType="{x:Type Separator}">
             <Setter Property="Margin" Value="10,5" />
-            <Setter Property="Background" Value="#4A5260" />
+            <Setter Property="Background" Value="{DynamicResource MenuSeparatorBrush}" />
         </Style>
 
     </Window.Resources>
 
     <Grid x:Name="Root"
-          Background="#101216">
+          Background="{DynamicResource AppBackgroundBrush}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
             <ColumnDefinition x:Name="ThumbnailSidebarColumn" Width="196" />
@@ -155,20 +186,25 @@
                     <Separator />
                     <MenuItem x:Name="FavoriteMenuItem" Header="加入收藏" Click="FavoriteMenuItem_Click" />
                     <MenuItem x:Name="FavoritesViewMenuItem" Header="只看收藏" Click="FavoritesViewMenuItem_Click" />
-                    <MenuItem x:Name="SetAsWallpaperMenuItem" Header="设为桌面壁纸" Visibility="Collapsed" Click="SetAsWallpaperMenuItem_Click" />
                     <Separator />
-                    <MenuItem x:Name="CropMenuItem" Header="裁剪图片" Click="CropMenuItem_Click" />
-                    <MenuItem x:Name="CircleCropMenuItem" Header="圆形裁剪" Click="CircleCropMenuItem_Click" />
-                    <MenuItem x:Name="CompressMenuItem" Header="压缩图片" Click="CompressMenuItem_Click" />
-                    <MenuItem x:Name="OpenBatchCompressToolsMenuItem" Header="批量压缩图片" Click="OpenBatchCompressToolsMenuItem_Click" />
-                    <MenuItem x:Name="SaveVideoCoverMenuItem" Header="另存视频封面" Visibility="Collapsed" Click="SaveVideoCoverMenuItem_Click" />
-                    <Separator />
-                    <MenuItem x:Name="BatchDeleteMenuItem" Header="批量删除当前目录媒体" Click="BatchDeleteMenuItem_Click" />
-                    <MenuItem x:Name="CopyFileMenuItem" Header="复制图片文件" Click="CopyFileMenuItem_Click" />
-                    <MenuItem x:Name="CopyNameMenuItem" Header="复制文件名" Click="CopyNameMenuItem_Click" />
-                    <MenuItem x:Name="CopyPathMenuItem" Header="复制文件路径" Click="CopyPathMenuItem_Click" />
-                    <MenuItem x:Name="CopyDiagnosticsMenuItem" Header="复制诊断信息" Click="CopyDiagnosticsMenuItem_Click" />
-                    <MenuItem x:Name="OpenContainingFolderMenuItem" Header="打开文件位置" Click="OpenContainingFolderMenuItem_Click" />
+                    <MenuItem Header="编辑与导出">
+                        <MenuItem x:Name="CropMenuItem" Header="裁剪图片" Click="CropMenuItem_Click" />
+                        <MenuItem x:Name="CircleCropMenuItem" Header="圆形裁剪" Click="CircleCropMenuItem_Click" />
+                        <MenuItem x:Name="CompressMenuItem" Header="压缩图片" Click="CompressMenuItem_Click" />
+                        <MenuItem x:Name="OpenBatchCompressToolsMenuItem" Header="批量压缩图片" Click="OpenBatchCompressToolsMenuItem_Click" />
+                        <Separator />
+                        <MenuItem x:Name="SetAsWallpaperMenuItem" Header="设为桌面壁纸" Visibility="Collapsed" Click="SetAsWallpaperMenuItem_Click" />
+                        <MenuItem x:Name="SaveVideoCoverMenuItem" Header="另存视频封面" Visibility="Collapsed" Click="SaveVideoCoverMenuItem_Click" />
+                    </MenuItem>
+                    <MenuItem Header="文件操作">
+                        <MenuItem x:Name="CopyFileMenuItem" Header="复制图片文件" Click="CopyFileMenuItem_Click" />
+                        <MenuItem x:Name="CopyNameMenuItem" Header="复制文件名" Click="CopyNameMenuItem_Click" />
+                        <MenuItem x:Name="CopyPathMenuItem" Header="复制文件路径" Click="CopyPathMenuItem_Click" />
+                        <MenuItem x:Name="OpenContainingFolderMenuItem" Header="打开文件位置" Click="OpenContainingFolderMenuItem_Click" />
+                        <Separator />
+                        <MenuItem x:Name="CopyDiagnosticsMenuItem" Header="复制诊断信息" Click="CopyDiagnosticsMenuItem_Click" />
+                        <MenuItem x:Name="BatchDeleteMenuItem" Header="批量删除当前目录媒体" Click="BatchDeleteMenuItem_Click" />
+                    </MenuItem>
                     <Separator />
                     <MenuItem x:Name="ToggleInfoMenuItem" Header="显示/隐藏图片信息" Click="ToggleInfoMenuItem_Click" />
                     <MenuItem x:Name="ToggleThumbnailSidebarMenuItem" Header="隐藏缩略图栏" Click="ToggleThumbnailSidebarMenuItem_Click" />
@@ -240,36 +276,64 @@
             <Border x:Name="EmptyPanel"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
-                    Background="#B0101216"
-                    BorderBrush="#33404D"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Padding="20,14">
-                <StackPanel Orientation="Horizontal">
-                    <Button Content="打开图片"
-                            Padding="18,8"
-                            Margin="0,0,10,0"
-                            Click="OpenImageMenuItem_Click" />
-                    <Button Content="打开目录"
-                            Padding="18,8"
-                            Click="OpenFolderMenuItem_Click" />
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Padding="24">
+                <StackPanel>
+                    <TextBlock Text="打开图片"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               FontSize="18"
+                               FontWeight="SemiBold"
+                               TextAlignment="Center" />
+                    <TextBlock Text="选择文件、打开目录，或直接拖放到此处。"
+                               Margin="0,7,0,0"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="13"
+                               TextAlignment="Center" />
+                    <StackPanel Margin="0,16,0,0"
+                                Orientation="Horizontal"
+                                HorizontalAlignment="Center">
+                        <Button Content="选择图片"
+                                Padding="18,8"
+                                Margin="0,0,10,0"
+                                Click="OpenImageMenuItem_Click" />
+                        <Button Content="打开目录"
+                                Padding="18,8"
+                                Click="OpenFolderMenuItem_Click" />
+                    </StackPanel>
                 </StackPanel>
             </Border>
 
             <Border x:Name="ErrorPanel"
+                    AutomationProperties.LiveSetting="Assertive"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
-                    Background="#E0181B21"
-                    BorderBrush="#5A6574"
+                    Background="{DynamicResource SurfaceRaisedBrush}"
+                    BorderBrush="{DynamicResource BorderStrongBrush}"
                     BorderThickness="1"
                     CornerRadius="8"
                     Padding="20,16"
                     MaxWidth="720"
                     Visibility="Collapsed">
-                <TextBlock x:Name="ErrorText"
-                           Foreground="#F4F6F8"
-                           FontSize="14"
-                           TextWrapping="Wrap" />
+                <StackPanel>
+                    <TextBlock Text="无法显示此文件"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               FontSize="16"
+                               FontWeight="SemiBold" />
+                    <TextBlock x:Name="ErrorText"
+                               Margin="0,7,0,0"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="13"
+                               TextWrapping="Wrap" />
+                    <StackPanel Margin="0,14,0,0"
+                                Orientation="Horizontal">
+                        <Button Content="重新选择文件"
+                                Margin="0,0,8,0"
+                                Click="OpenImageMenuItem_Click" />
+                        <Button Content="复制诊断信息"
+                                Click="CopyDiagnosticsMenuItem_Click" />
+                    </StackPanel>
+                </StackPanel>
             </Border>
 
             <Border x:Name="LoadingPanel"
@@ -427,8 +491,8 @@
 
         <Border x:Name="ThumbnailSidebar"
                 Grid.Column="1"
-                Background="#181C23"
-                BorderBrush="#2A323E"
+                Background="{DynamicResource ThumbnailSurfaceBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
                 BorderThickness="1,0,0,0">
             <Border.ContextMenu>
                 <ContextMenu Opened="ContextMenu_Opened">
@@ -442,7 +506,7 @@
             </Border.ContextMenu>
             <DockPanel>
                 <Border DockPanel.Dock="Top"
-                        BorderBrush="#2A323E"
+                        BorderBrush="{DynamicResource BorderBrush}"
                         BorderThickness="0,0,0,1"
                         Padding="10,8">
                     <Grid>
@@ -454,7 +518,7 @@
                                    Grid.Column="0"
                                    VerticalAlignment="Center"
                                    Text="图片预览"
-                                   Foreground="#E8ECF0"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"
                                    FontSize="13"
                                    FontWeight="SemiBold" />
                         <Button x:Name="ThumbnailColumnToggleButton"
@@ -474,7 +538,7 @@
                          AutomationProperties.HelpText="使用上一张和下一张快捷键浏览图片"
                          Background="Transparent"
                          BorderThickness="0"
-                         Foreground="#F2F5F7"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
                          Padding="8,4,4,4"
                          ScrollViewer.CanContentScroll="True"
                          VirtualizingPanel.IsVirtualizing="True"
@@ -505,14 +569,14 @@
                                     <ControlTemplate TargetType="{x:Type Thumb}">
                                         <Border x:Name="ThumbBorder"
                                                 Margin="2"
-                                                Background="#526070"
+                                                Background="{DynamicResource ScrollThumbBrush}"
                                                 CornerRadius="4" />
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="ThumbBorder" Property="Background" Value="#6D7E91" />
+                                                <Setter TargetName="ThumbBorder" Property="Background" Value="{DynamicResource ScrollThumbHoverBrush}" />
                                             </Trigger>
                                             <Trigger Property="IsDragging" Value="True">
-                                                <Setter TargetName="ThumbBorder" Property="Background" Value="#78C8F8" />
+                                                <Setter TargetName="ThumbBorder" Property="Background" Value="{DynamicResource ScrollThumbActiveBrush}" />
                                             </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
@@ -528,7 +592,7 @@
                                     <ControlTemplate TargetType="{x:Type ScrollBar}">
                                         <Grid Background="{TemplateBinding Background}">
                                             <Border x:Name="ScrollTrack"
-                                                    Background="#11151B"
+                                                    Background="{DynamicResource ScrollTrackBrush}"
                                                     CornerRadius="6"
                                                     Margin="2" />
                                             <Track x:Name="PART_Track"
@@ -549,7 +613,7 @@
                                         </Grid>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="ScrollTrack" Property="Background" Value="#151B24" />
+                                                <Setter TargetName="ScrollTrack" Property="Background" Value="{DynamicResource ScrollTrackHoverBrush}" />
                                             </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
@@ -606,20 +670,20 @@
                                                     <Setter Property="BorderBrush" Value="#00000000" />
                                                     <Style.Triggers>
                                                         <Trigger Property="IsMouseOver" Value="True">
-                                                            <Setter Property="Background" Value="#242B36" />
-                                                            <Setter Property="BorderBrush" Value="#3B4655" />
+                                                            <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+                                                            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
                                                         </Trigger>
                                                         <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                                            <Setter Property="Background" Value="#26394B" />
-                                                            <Setter Property="BorderBrush" Value="#65BFF2" />
+                                                            <Setter Property="Background" Value="{DynamicResource AccentSurfaceHoverBrush}" />
+                                                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
                                             </Border.Style>
                                             <StackPanel>
                                                 <Border Height="{Binding DataContext.ThumbnailImageHeight, RelativeSource={RelativeSource AncestorType={x:Type ListBox}}}"
-                                                        Background="#101216"
-                                                        BorderBrush="#303846"
+                                                        Background="{DynamicResource ThumbnailImageBackgroundBrush}"
+                                                        BorderBrush="{DynamicResource BorderBrush}"
                                                         BorderThickness="1"
                                                         CornerRadius="6"
                                                         ClipToBounds="True">
@@ -627,7 +691,7 @@
                                                         <TextBlock Text="{Binding StatusText}"
                                                                    HorizontalAlignment="Center"
                                                                    VerticalAlignment="Center"
-                                                                   Foreground="#748091"
+                                                                   Foreground="{DynamicResource TextMutedBrush}"
                                                                    FontSize="11">
                                                             <TextBlock.Style>
                                                                 <Style TargetType="{x:Type TextBlock}">
@@ -693,7 +757,7 @@
                                                 </Border>
                                                 <TextBlock Text="{Binding FileName}"
                                                            Margin="0,4,0,0"
-                                                           Foreground="#DCE4EC"
+                                                           Foreground="{DynamicResource TextBodyBrush}"
                                                            FontSize="11"
                                                            TextTrimming="CharacterEllipsis" />
                                             </StackPanel>
@@ -928,7 +992,7 @@
                                      Padding="0,1"
                                      Background="Transparent"
                                      BorderThickness="0"
-                                     FocusVisualStyle="{x:Null}"
+                                     FocusVisualStyle="{DynamicResource KeyboardFocusVisual}"
                                      Foreground="#FFFFFF"
                                      CaretBrush="Transparent"
                                      SelectionBrush="#58FFFFFF"

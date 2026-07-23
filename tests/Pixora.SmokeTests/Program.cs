@@ -75,6 +75,7 @@ internal static class Program
         AssertQuickSearchIndexPerformance();
         AssertLargeCatalogPerformance();
         AssertViewerSettings(root);
+        AssertThemeResources(root);
         AssertAtomicJsonPersistence(root);
         AssertMainWindowInputMethodDisabled(root);
         AssertMainWindowExperienceControls(root);
@@ -1112,6 +1113,7 @@ internal static class Program
 
     private static void AssertViewerSettings(string root)
     {
+        Assert(new ViewerSettings().Theme == AppTheme.Dark, "Viewer theme should remain dark by default for existing installations.");
         Assert(!new ViewerSettings().HideQuickSearchAfterJump, "Quick search should remain visible after a successful jump by default.");
         Assert(new ViewerSettings().ShowZoomIndicator, "Zoom percentage indicator should be enabled by default.");
         Assert(new ViewerSettings().ZoomIndicatorDisplayMode == ZoomIndicatorDisplayMode.Percentage, "Zoom indicator should default to percentage mode.");
@@ -1125,9 +1127,13 @@ internal static class Program
         var outputFolder = Path.Combine(root, "test-output");
         Directory.CreateDirectory(outputFolder);
         var settingsPath = Path.Combine(outputFolder, "viewer-settings-smoke.json");
+        var legacySettingsPath = Path.Combine(outputFolder, "viewer-settings-legacy-smoke.json");
+        File.WriteAllText(legacySettingsPath, "{}");
+        Assert(ViewerSettings.Load(legacySettingsPath).Theme == AppTheme.Dark, "Viewer settings without a theme field should retain the dark default.");
 
         var settings = new ViewerSettings
         {
+            Theme = AppTheme.Light,
             ShowThumbnailSidebar = false,
             UseDoubleThumbnailColumns = false,
             QuickSearchMode = QuickSearchMode.FileName,
@@ -1160,6 +1166,7 @@ internal static class Program
 
         settings.Save(settingsPath);
         var loaded = ViewerSettings.Load(settingsPath);
+        Assert(loaded.Theme == AppTheme.Light, "Viewer settings should persist the selected light theme.");
         Assert(!loaded.ShowThumbnailSidebar, "Viewer settings should persist hidden thumbnail sidebar state.");
         Assert(!loaded.UseDoubleThumbnailColumns, "Viewer settings should persist thumbnail column preference.");
         Assert(loaded.QuickSearchMode == QuickSearchMode.FileName, "Viewer settings should persist quick-search mode.");
@@ -1188,10 +1195,40 @@ internal static class Program
         Assert(typeof(ViewerSettings).GetProperty("ShowDirectoryStats") is null, "Viewer settings should not retain the removed directory statistics option.");
         var settingsXaml = File.ReadAllText(Path.Combine(root, "src", "Pixora", "ShortcutSettingsWindow.xaml"));
         Assert(settingsXaml.Contains("x:Name=\"ShowZoomIndicatorCheckBox\"", StringComparison.Ordinal), "Interface settings should expose the zoom percentage preference.");
+        Assert(settingsXaml.Contains("x:Name=\"ThemeComboBox\"", StringComparison.Ordinal), "Interface settings should expose dark and light appearance choices.");
         Assert(settingsXaml.Contains("x:Name=\"ZoomIndicatorDisplayModeComboBox\"", StringComparison.Ordinal), "Interface settings should let users choose percentage or multiplier zoom text.");
         Assert(settingsXaml.Contains("适应窗口”的默认大小为 1.00×", StringComparison.Ordinal), "Interface settings should explain that multiplier mode is relative to the fitted view.");
         Assert(FileAssociationService.SupportedExtensions.Contains(".gif"), "File association extensions should include GIF.");
         Assert(FileAssociationService.SupportedExtensions.All(extension => ImageCatalog.IsSupportedStillImagePath("sample" + extension)), "File association extensions should be supported image extensions.");
+    }
+
+    private static void AssertThemeResources(string root)
+    {
+        var application = Application.Current ?? new Application();
+        ThemeManager.Apply(AppTheme.Light);
+        Assert(ThemeManager.CurrentTheme == AppTheme.Light, "Theme manager should switch to the light theme at runtime.");
+        Assert(
+            application.Resources["AppBackgroundBrush"] is SolidColorBrush lightBackground
+            && lightBackground.Color == Color.FromRgb(0xF3, 0xF5, 0xF7),
+            "Light theme should expose the intended cool gray application background.");
+
+        ThemeManager.Apply(AppTheme.Dark);
+        Assert(ThemeManager.CurrentTheme == AppTheme.Dark, "Theme manager should switch back to the dark theme.");
+        Assert(
+            application.Resources["AppBackgroundBrush"] is SolidColorBrush darkBackground
+            && darkBackground.Color == Color.FromRgb(0x10, 0x12, 0x16),
+            "Dark theme should retain Pixora's original application background.");
+
+        var appXaml = File.ReadAllText(Path.Combine(root, "src", "Pixora", "App.xaml"));
+        var mainXaml = File.ReadAllText(Path.Combine(root, "src", "Pixora", "MainWindow.xaml"));
+        var settingsXaml = File.ReadAllText(Path.Combine(root, "src", "Pixora", "ShortcutSettingsWindow.xaml"));
+        var compressXaml = File.ReadAllText(Path.Combine(root, "src", "Pixora", "CompressImageWindow.xaml"));
+        var batchXaml = File.ReadAllText(Path.Combine(root, "src", "Pixora", "BatchCompressWindow.xaml"));
+        Assert(appXaml.Contains("Themes/Theme.Dark.xaml", StringComparison.Ordinal), "Application resources should load a deterministic default theme.");
+        Assert(mainXaml.Contains("DynamicResource ViewerCanvasBaseBrush", StringComparison.Ordinal), "The image canvas should adapt its checkerboard to the active theme.");
+        Assert(!settingsXaml.Contains("#101216", StringComparison.OrdinalIgnoreCase), "Settings should not retain a fixed dark window background.");
+        Assert(!compressXaml.Contains("#101216", StringComparison.OrdinalIgnoreCase), "Single-image compression should not retain a fixed dark window background.");
+        Assert(!batchXaml.Contains("#101216", StringComparison.OrdinalIgnoreCase), "Batch compression should not retain a fixed dark window background.");
     }
 
     private static void AssertAtomicJsonPersistence(string root)
@@ -1289,6 +1326,7 @@ internal static class Program
     {
         var viewerSettings = new ViewerSettings
         {
+            Theme = AppTheme.Light,
             ThumbnailDiskCacheMegabytes = 1024,
             QuickSearchMode = QuickSearchMode.FileName,
             ShowQuickSearchOnStartup = true,
@@ -1299,11 +1337,9 @@ internal static class Program
         var cachePathText = window.FindName("ThumbnailDiskCachePathText") as TextBlock;
         var generalPage = window.FindName("GeneralPage") as ScrollViewer;
         var quickSearchMode = window.FindName("QuickSearchModeComboBox") as ComboBox;
+        var theme = window.FindName("ThemeComboBox") as ComboBox;
         var showQuickSearchOnStartup = window.FindName("ShowQuickSearchOnStartupCheckBox") as CheckBox;
         var hideQuickSearchAfterJump = window.FindName("HideQuickSearchAfterJumpCheckBox") as CheckBox;
-        var settingsSearch = window.FindName("SettingsSearchTextBox") as TextBox;
-        var interfaceSection = window.FindName("InterfaceSettingsSection") as FrameworkElement;
-        var performanceSection = window.FindName("PerformanceSettingsSection") as FrameworkElement;
         var cacheSizingMode = window.FindName("CacheSizingModeComboBox") as ComboBox;
         var automaticCacheSummary = window.FindName("AutomaticCacheSummaryText") as TextBlock;
         var automaticCacheSummaryPanel = window.FindName("AutomaticCacheSummaryPanel") as FrameworkElement;
@@ -1316,9 +1352,10 @@ internal static class Program
         Assert(cachePathText?.Text.Contains("当前占用", StringComparison.Ordinal) == true, "Settings window should show thumbnail disk cache usage.");
         Assert(generalPage?.ClipToBounds == true, "Settings page should clip scrolling content inside its viewport.");
         Assert(quickSearchMode?.SelectedValue?.ToString() == "FileName", "Settings window should select the persisted quick-search mode.");
+        Assert(theme?.SelectedValue?.ToString() == "Light", "Settings window should select the persisted appearance theme.");
         Assert(showQuickSearchOnStartup?.IsChecked == true, "Settings window should select persisted startup quick-search visibility.");
         Assert(hideQuickSearchAfterJump?.IsChecked == true, "Settings window should select the persisted post-jump quick-search behavior.");
-        Assert(settingsSearch is not null, "Settings window should expose an always-visible search input.");
+        Assert(window.FindName("SettingsSearchTextBox") is null, "Settings window should not include the removed search input.");
         Assert(cacheSizingMode?.SelectedValue?.ToString() == "Automatic", "Settings should present automatic cache mode as the default explicit choice.");
         Assert(automaticCacheSummary?.Text.Contains("当前预算", StringComparison.Ordinal) == true, "Automatic cache mode should show the effective runtime budget.");
         Assert(automaticCacheSummaryPanel?.Visibility == Visibility.Visible, "Automatic cache mode should show its hardware summary panel.");
@@ -1328,11 +1365,6 @@ internal static class Program
         cacheSizingMode!.SelectedValue = "Manual";
         Assert(manualCacheSettings!.IsEnabled, "Switching to manual cache mode should immediately enable capacity selectors.");
         Assert(automaticCacheSummaryPanel!.Visibility == Visibility.Collapsed, "Manual cache mode should hide the automatic hardware summary.");
-        settingsSearch!.Text = "缓存";
-        Assert(performanceSection?.Visibility == Visibility.Visible, "Settings search should keep matching performance and cache settings visible.");
-        Assert(interfaceSection?.Visibility == Visibility.Collapsed, "Settings search should hide unrelated interface settings.");
-        settingsSearch.Clear();
-        Assert(interfaceSection?.Visibility == Visibility.Visible, "Clearing settings search should restore all settings sections.");
         Assert(TextOptions.GetTextRenderingMode(generalPage) == TextRenderingMode.Grayscale, "Settings page should use stable grayscale text rendering while scrolling.");
         Assert(TextOptions.GetTextHintingMode(generalPage) == TextHintingMode.Animated, "Settings page should use animated text hinting while scrolling.");
     }
@@ -1354,6 +1386,14 @@ internal static class Program
         var code = File.ReadAllText(codePath);
         Assert(xaml.Contains("x:Name=\"CancelFolderLoadButton\"", StringComparison.Ordinal), "Main window should expose scan cancellation.");
         Assert(xaml.Contains("x:Name=\"CatalogScanPanel\"", StringComparison.Ordinal), "Main window should expose background catalog progress.");
+        Assert(!xaml.Contains("x:Name=\"MainToolbar\"", StringComparison.Ordinal), "The image-first viewer should not add a persistent command toolbar.");
+        Assert(xaml.Contains("<MenuItem Header=\"编辑与导出\">", StringComparison.Ordinal), "Low-frequency edit and export commands should be grouped in a submenu.");
+        Assert(xaml.Contains("<MenuItem Header=\"文件操作\">", StringComparison.Ordinal), "File and diagnostic commands should be grouped in a submenu.");
+        Assert(xaml.Contains("x:Name=\"PART_Popup\"", StringComparison.Ordinal), "The dark context-menu template should support keyboard-accessible submenus.");
+        Assert(xaml.Contains("Text=\"选择文件、打开目录，或直接拖放到此处。\"", StringComparison.Ordinal), "The empty state should explain every supported opening path.");
+        Assert(xaml.Contains("Text=\"无法显示此文件\"", StringComparison.Ordinal), "The error state should lead with a concise problem description.");
+        Assert(xaml.Contains("Content=\"重新选择文件\"", StringComparison.Ordinal), "The error state should offer an immediate recovery action.");
+        Assert(xaml.Contains("Content=\"复制诊断信息\"", StringComparison.Ordinal), "The error state should keep diagnostics directly actionable.");
         Assert(xaml.Contains("x:Name=\"QuickSearchOverlay\"", StringComparison.Ordinal), "Main window should expose the hidden quick-search overlay.");
         Assert(xaml.Contains("x:Name=\"ZoomIndicator\"", StringComparison.Ordinal), "Main window should expose a transient zoom indicator.");
         Assert(xaml.Contains("x:Name=\"ZoomIndicatorText\"", StringComparison.Ordinal), "Zoom indicator should expose its current scale text.");
@@ -1438,19 +1478,31 @@ internal static class Program
     {
         var project = File.ReadAllText(Path.Combine(root, "src", "Pixora", "Pixora.csproj"));
         var manifest = File.ReadAllText(Path.Combine(root, "src", "Pixora", "app.manifest"));
+        var appXaml = File.ReadAllText(Path.Combine(root, "src", "Pixora", "App.xaml"));
         var mainXaml = File.ReadAllText(Path.Combine(root, "src", "Pixora", "MainWindow.xaml"));
         var settingsXaml = File.ReadAllText(Path.Combine(root, "src", "Pixora", "ShortcutSettingsWindow.xaml"));
+        var compressXaml = File.ReadAllText(Path.Combine(root, "src", "Pixora", "CompressImageWindow.xaml"));
+        var batchCompressXaml = File.ReadAllText(Path.Combine(root, "src", "Pixora", "BatchCompressWindow.xaml"));
 
         Assert(project.Contains("<ApplicationManifest>app.manifest</ApplicationManifest>", StringComparison.Ordinal), "Pixora should build with its explicit Windows application manifest.");
         Assert(manifest.Contains("PerMonitorV2,PerMonitor", StringComparison.Ordinal), "Pixora should opt into per-monitor V2 DPI awareness.");
         Assert(manifest.Contains("requestedExecutionLevel level=\"asInvoker\"", StringComparison.Ordinal), "Pixora should run with normal user privileges.");
         Assert(manifest.Contains("{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}", StringComparison.OrdinalIgnoreCase), "Pixora manifest should declare Windows 10 and later compatibility.");
+        Assert(appXaml.Contains("x:Key=\"KeyboardFocusVisual\"", StringComparison.Ordinal), "Shared controls should expose a visible keyboard-focus treatment.");
+        Assert(!appXaml.Contains("FocusVisualStyle\" Value=\"{x:Null}\"", StringComparison.Ordinal), "Shared controls should not suppress keyboard focus visuals.");
         Assert(mainXaml.Contains("KeyboardNavigation.TabNavigation=\"Cycle\"", StringComparison.Ordinal), "Quick search should keep Tab navigation inside its compact control group.");
         Assert(mainXaml.Contains("AutomationProperties.Name=\"快速搜索输入\"", StringComparison.Ordinal), "Quick-search input should expose an accessible name.");
         Assert(mainXaml.Contains("AutomationProperties.Name=\"执行快速搜索\"", StringComparison.Ordinal), "Quick-search go button should expose an accessible name.");
         Assert(mainXaml.Contains("AutomationProperties.LiveSetting=\"Polite\"", StringComparison.Ordinal), "Dynamic viewer status should be announced without interrupting the user.");
         Assert(mainXaml.Contains("AutomationProperties.Name=\"当前目录缩略图\"", StringComparison.Ordinal), "Thumbnail list should expose an accessible name.");
         Assert(settingsXaml.Contains("AutomationProperties.Name=\"清理缩略图磁盘缓存\"", StringComparison.Ordinal), "Cache maintenance button should expose an accessible name.");
+        Assert(
+            settingsXaml.Split("Style=\"{StaticResource SettingsSection}\"", StringSplitOptions.None).Length - 1 == 5,
+            "General settings should use five flat section groups instead of nested card surfaces.");
+        Assert(compressXaml.Contains("ResizeMode=\"CanResize\"", StringComparison.Ordinal), "Single-image compression should be resizable on constrained work areas.");
+        Assert(compressXaml.Contains("VerticalScrollBarVisibility=\"Auto\"", StringComparison.Ordinal), "Single-image compression should scroll rather than clip at small heights.");
+        Assert(batchCompressXaml.Contains("MinWidth=\"720\"", StringComparison.Ordinal), "Batch compression should fit narrower desktop work areas.");
+        Assert(batchCompressXaml.Contains("MinHeight=\"520\"", StringComparison.Ordinal), "Batch compression should fit shorter desktop work areas.");
     }
 
     private static void AssertMainWindowInitializes()
@@ -1458,9 +1510,18 @@ internal static class Program
         var window = new MainWindow();
         var scanPanel = window.FindName("CatalogScanPanel") as FrameworkElement;
         var quickSearchOverlay = window.FindName("QuickSearchOverlay") as FrameworkElement;
+        var viewerSurface = window.FindName("ViewerSurface") as Grid;
 
         Assert(scanPanel is not null && scanPanel.Visibility == Visibility.Collapsed, "Background scan progress should start hidden.");
         Assert(quickSearchOverlay is not null && quickSearchOverlay.Visibility == Visibility.Collapsed, "Quick search should stay hidden until its shortcut is pressed.");
+        var topLevelMenuItems = viewerSurface?.ContextMenu?.Items.OfType<MenuItem>().ToList() ?? [];
+        Assert(topLevelMenuItems.Count == 9, "Viewer context menu should keep only nine top-level commands and groups.");
+        var editAndExportMenu = topLevelMenuItems.FirstOrDefault(item => string.Equals(item.Header as string, "编辑与导出", StringComparison.Ordinal));
+        var fileOperationsMenu = topLevelMenuItems.FirstOrDefault(item => string.Equals(item.Header as string, "文件操作", StringComparison.Ordinal));
+        Assert(editAndExportMenu?.Items.OfType<MenuItem>().Any(item => item.Name == "CropMenuItem") == true, "Edit submenu should retain the existing crop command.");
+        Assert(fileOperationsMenu?.Items.OfType<MenuItem>().Any(item => item.Name == "CopyPathMenuItem") == true, "File submenu should retain the existing copy-path command.");
+        editAndExportMenu!.ApplyTemplate();
+        Assert(editAndExportMenu.Template.FindName("PART_Popup", editAndExportMenu) is not null, "Dark menu template should create the submenu popup part.");
 
         var formatZoomScale = typeof(MainWindow).GetMethod(
             "FormatZoomScale",

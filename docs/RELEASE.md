@@ -133,7 +133,7 @@ dotnet run --project tests\Pixora.SmokeTests\Pixora.SmokeTests.csproj -- --media
 - GIF/APNG 动图播放、暂停、重新播放。
 - 收藏、取消收藏、只看收藏、退出收藏。
 - 设置窗口大小拉大后关闭，再重新打开仍能恢复。
-- 快捷键搜索、编辑、冲突提示、恢复默认。
+- 快捷键编辑、冲突提示、恢复默认。
 - 裁剪、圆形裁剪、保存裁剪。
 - 单图压缩 JPEG/PNG。
 - 批量压缩目录，确认动图跳过、失败项有提示、输出目录有日志。

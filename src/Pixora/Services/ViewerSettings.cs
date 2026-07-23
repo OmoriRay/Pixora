@@ -21,6 +21,12 @@ public enum ZoomIndicatorDisplayMode
     Multiplier,
 }
 
+public enum AppTheme
+{
+    Dark,
+    Light,
+}
+
 public sealed class ViewerSettings
 {
     public const int DefaultMainImageCacheMegabytes = 768;
@@ -36,6 +42,8 @@ public sealed class ViewerSettings
     public bool ShowThumbnailSidebar { get; set; } = true;
 
     public bool UseDoubleThumbnailColumns { get; set; } = true;
+
+    public AppTheme Theme { get; set; } = AppTheme.Dark;
 
     public QuickSearchMode QuickSearchMode { get; set; } = global::Pixora.Services.QuickSearchMode.Index;
 
@@ -143,6 +151,11 @@ public sealed class ViewerSettings
 
     private void Normalize()
     {
+        if (!Enum.IsDefined<global::Pixora.Services.AppTheme>(Theme))
+        {
+            Theme = AppTheme.Dark;
+        }
+
         if (!Enum.IsDefined<global::Pixora.Services.QuickSearchMode>(QuickSearchMode))
         {
             QuickSearchMode = global::Pixora.Services.QuickSearchMode.Index;
