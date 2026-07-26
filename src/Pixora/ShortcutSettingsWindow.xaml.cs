@@ -323,14 +323,15 @@ public partial class ShortcutSettingsWindow : Window
         var displayRows = CreateShortcutDisplayRows(rows, _shortcutGridColumnCount);
         ShortcutGrid.ItemsSource = displayRows;
         ShortcutGrid.SelectedItem = displayRows.FirstOrDefault(row =>
+            !row.IsFiller &&
             row.Action == selectedAction &&
             ShortcutsEqual(row.Shortcut, selectedShortcut)) ??
-            displayRows.FirstOrDefault(row => row.Action == selectedAction) ??
-            displayRows.FirstOrDefault();
+            displayRows.FirstOrDefault(row => !row.IsFiller && row.Action == selectedAction) ??
+            displayRows.FirstOrDefault(row => !row.IsFiller);
     }
 
 
-    private static IReadOnlyList<ShortcutDisplayRow> CreateShortcutDisplayRows(IReadOnlyList<ShortcutRow> rows, int columnCount)
+    private static IReadOnlyList<ShortcutDisplayRow> CreateShortcutDisplayRows(IReadOnlyList<ShortcutRow?> rows, int columnCount)
     {
         var displayRows = new List<ShortcutDisplayRow>(rows.Count);
         var categoryByColumn = new string?[Math.Max(1, columnCount)];
@@ -338,6 +339,12 @@ public partial class ShortcutSettingsWindow : Window
         {
             var row = rows[index];
             var columnIndex = index % categoryByColumn.Length;
+            if (row is null)
+            {
+                displayRows.Add(new ShortcutDisplayRow(null, string.Empty));
+                continue;
+            }
+
             var categoryText = row.Category == categoryByColumn[columnIndex] ? string.Empty : row.Category;
             displayRows.Add(new ShortcutDisplayRow(row, categoryText));
             categoryByColumn[columnIndex] = row.Category;
@@ -345,28 +352,89 @@ public partial class ShortcutSettingsWindow : Window
 
         return displayRows;
     }
-    private static IReadOnlyList<ShortcutRow> ArrangeShortcutRowsForDisplay(IReadOnlyList<ShortcutRow> rows, int columnCount)
+
+    private static IReadOnlyList<ShortcutRow?> ArrangeShortcutRowsForDisplay(IReadOnlyList<ShortcutRow> rows, int columnCount)
     {
         if (columnCount <= 1 || rows.Count <= columnCount)
         {
             return rows;
         }
 
-        var arranged = new List<ShortcutRow>(rows.Count);
-        var rowCount = (rows.Count + columnCount - 1) / columnCount;
+        var columns = SplitRowsAtCategoryBoundaries(rows, columnCount);
+        var rowCount = columns.Max(column => column.Count);
+        var arranged = new List<ShortcutRow?>(rowCount * columnCount);
         for (var rowIndex = 0; rowIndex < rowCount; rowIndex++)
         {
             for (var columnIndex = 0; columnIndex < columnCount; columnIndex++)
             {
-                var sourceIndex = columnIndex * rowCount + rowIndex;
-                if (sourceIndex < rows.Count)
+                var column = columns[columnIndex];
+                if (rowIndex < column.Count)
                 {
-                    arranged.Add(rows[sourceIndex]);
+                    arranged.Add(column[rowIndex]);
+                    continue;
+                }
+
+                // 该列已排完；右侧列还有内容时用占位行维持网格列对齐
+                for (var later = columnIndex + 1; later < columnCount; later++)
+                {
+                    if (rowIndex < columns[later].Count)
+                    {
+                        arranged.Add(null);
+                        break;
+                    }
                 }
             }
         }
 
         return arranged;
+    }
+
+    private static List<List<ShortcutRow>> SplitRowsAtCategoryBoundaries(IReadOnlyList<ShortcutRow> rows, int columnCount)
+    {
+        var boundaries = new List<int>();
+        for (var index = 1; index < rows.Count; index++)
+        {
+            if (!string.Equals(rows[index].Category, rows[index - 1].Category, StringComparison.Ordinal))
+            {
+                boundaries.Add(index);
+            }
+        }
+
+        var columns = new List<List<ShortcutRow>>(columnCount);
+        var start = 0;
+        for (var columnIndex = 1; columnIndex < columnCount; columnIndex++)
+        {
+            var ideal = (int)Math.Round(rows.Count * (double)columnIndex / columnCount);
+            var cut = ideal;
+            var bestDistance = double.MaxValue;
+            foreach (var boundary in boundaries)
+            {
+                if (boundary <= start || boundary >= rows.Count)
+                {
+                    continue;
+                }
+
+                var distance = Math.Abs(boundary - ideal);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    cut = boundary;
+                }
+            }
+
+            // 单个类别过长导致切点严重失衡时，退回按数量均分
+            if (bestDistance > rows.Count / (double)(columnCount * 2))
+            {
+                cut = ideal;
+            }
+
+            cut = Math.Clamp(cut, start + 1, rows.Count - 1);
+            columns.Add(rows.Skip(start).Take(cut - start).ToList());
+            start = cut;
+        }
+
+        columns.Add(rows.Skip(start).ToList());
+        return columns;
     }
     private void EditButton_Click(object sender, RoutedEventArgs e)
     {
@@ -977,15 +1045,17 @@ public partial class ShortcutSettingsWindow : Window
             _ => 1000 + (int)action,
         };
     }
-    private sealed record ShortcutDisplayRow(ShortcutRow Source, string CategoryText)
+    private sealed record ShortcutDisplayRow(ShortcutRow? Source, string CategoryText)
     {
-        public ShortcutAction Action => Source.Action;
+        public bool IsFiller => Source is null;
 
-        public string ActionName => Source.ActionName;
+        public ShortcutAction Action => Source?.Action ?? default;
 
-        public KeyboardShortcut? Shortcut => Source.Shortcut;
+        public string ActionName => Source?.ActionName ?? string.Empty;
 
-        public string ShortcutText => Source.ShortcutText;
+        public KeyboardShortcut? Shortcut => Source?.Shortcut;
+
+        public string ShortcutText => Source?.ShortcutText ?? string.Empty;
     }
 
     private sealed record ShortcutRow(ShortcutAction Action, string Category, string ActionName, KeyboardShortcut? Shortcut)
