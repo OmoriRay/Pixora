@@ -4,7 +4,7 @@
         Title="设置"
         Width="720"
         Height="540"
-        MinWidth="700"
+        MinWidth="560"
         MinHeight="460"
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource AppBackgroundBrush}"
@@ -581,70 +581,64 @@
             </Grid>
         </Grid>
 
-        <Grid Grid.Row="1"
-              Margin="0,14,0,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-
+        <StackPanel Grid.Row="1"
+                    Margin="0,8,0,0">
             <TextBlock x:Name="StatusText"
-                       Margin="2,0,12,0"
-                       VerticalAlignment="Center"
+                       Margin="2,4,0,0"
                        Foreground="{DynamicResource TextSecondaryBrush}"
                        Text="选择一行后可以修改、添加或删除单个快捷键。"
                        TextTrimming="CharacterEllipsis"
                        Visibility="Collapsed" />
 
-            <StackPanel x:Name="ShortcutActionButtonsPanel"
-                        Grid.Column="1"
-                        Orientation="Horizontal"
-                        HorizontalAlignment="Right"
-                        Margin="0,0,16,0"
-                        Visibility="Collapsed">
-                <Button x:Name="EditButton"
-                        Content="修改"
-                        MinWidth="84"
-                        Padding="12,7"
-                        Margin="0,0,8,0"
-                        Click="EditButton_Click" />
-                <Button x:Name="AddButton"
-                        Content="添加"
-                        MinWidth="84"
-                        Padding="12,7"
-                        Margin="0,0,8,0"
-                        Click="AddButton_Click" />
-                <Button x:Name="DeleteButton"
-                        Content="删除选中"
-                        MinWidth="94"
-                        Padding="12,7"
-                        Margin="0,0,8,0"
-                        Click="DeleteButton_Click" />
-                <Button Content="恢复默认"
-                        MinWidth="84"
-                        Padding="12,7"
-                        Margin="0,0,8,0"
-                        Click="ResetButton_Click" />
-                <Button Content="清空所有"
-                        MinWidth="84"
-                        Padding="12,7"
-                        Click="ClearAllButton_Click" />
-            </StackPanel>
+            <!-- 窗口不够宽时按钮组自动折行，避免被截断 -->
+            <WrapPanel Orientation="Horizontal"
+                       HorizontalAlignment="Right">
+                <StackPanel x:Name="ShortcutActionButtonsPanel"
+                            Orientation="Horizontal"
+                            Margin="0,6,16,0"
+                            Visibility="Collapsed">
+                    <Button x:Name="EditButton"
+                            Content="修改"
+                            MinWidth="84"
+                            Padding="12,7"
+                            Margin="0,0,8,0"
+                            Click="EditButton_Click" />
+                    <Button x:Name="AddButton"
+                            Content="添加"
+                            MinWidth="84"
+                            Padding="12,7"
+                            Margin="0,0,8,0"
+                            Click="AddButton_Click" />
+                    <Button x:Name="DeleteButton"
+                            Content="删除选中"
+                            MinWidth="94"
+                            Padding="12,7"
+                            Margin="0,0,8,0"
+                            Click="DeleteButton_Click" />
+                    <Button Content="恢复默认"
+                            MinWidth="84"
+                            Padding="12,7"
+                            Margin="0,0,8,0"
+                            Click="ResetButton_Click" />
+                    <Button Content="清空所有"
+                            MinWidth="84"
+                            Padding="12,7"
+                            Click="ClearAllButton_Click" />
+                </StackPanel>
 
-            <StackPanel Grid.Column="2"
-                        Orientation="Horizontal"
-                        HorizontalAlignment="Right">
-                <Button Content="保存"
-                        MinWidth="84"
-                        Padding="12,7"
-                        Margin="0,0,8,0"
-                        Click="SaveButton_Click" />
-                <Button Content="取消"
-                        MinWidth="84"
-                        Padding="12,7"
-                        Click="CancelButton_Click" />
-            </StackPanel>
-        </Grid>
+                <StackPanel Orientation="Horizontal"
+                            Margin="0,6,0,0">
+                    <Button Content="保存"
+                            MinWidth="84"
+                            Padding="12,7"
+                            Margin="0,0,8,0"
+                            Click="SaveButton_Click" />
+                    <Button Content="取消"
+                            MinWidth="84"
+                            Padding="12,7"
+                            Click="CancelButton_Click" />
+                </StackPanel>
+            </WrapPanel>
+        </StackPanel>
     </Grid>
 </Window>
