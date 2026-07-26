@@ -512,36 +512,17 @@
                             <ListBox.ItemContainerStyle>
                                 <Style TargetType="{x:Type ListBoxItem}">
                                     <Setter Property="Width" Value="{Binding Tag, RelativeSource={RelativeSource AncestorType={x:Type ListBox}}}" />
-                                    <Setter Property="MinHeight" Value="30" />
-                                    <Setter Property="Margin" Value="0,0,8,4" />
-                                    <Setter Property="Padding" Value="10,4" />
-                                    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+                                    <Setter Property="Margin" Value="0,0,8,0" />
+                                    <Setter Property="Padding" Value="0" />
                                     <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
                                     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                    <Setter Property="VerticalContentAlignment" Value="Center" />
+                                    <Setter Property="VerticalContentAlignment" Value="Top" />
                                     <Setter Property="FocusVisualStyle" Value="{DynamicResource KeyboardFocusVisual}" />
                                     <Setter Property="Template">
                                         <Setter.Value>
+                                            <!-- 行视觉全部由 ItemTemplate 里的类别分组框负责 -->
                                             <ControlTemplate TargetType="{x:Type ListBoxItem}">
-                                                <Border x:Name="ItemChrome"
-                                                        Background="{TemplateBinding Background}"
-                                                        CornerRadius="6"
-                                                        Padding="{TemplateBinding Padding}">
-                                                    <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
-                                                </Border>
-                                                <ControlTemplate.Triggers>
-                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="ItemChrome" Property="Background" Value="{DynamicResource AccentSurfaceHoverBrush}" />
-                                                    </Trigger>
-                                                    <Trigger Property="IsSelected" Value="True">
-                                                        <Setter Property="Foreground" Value="{DynamicResource SelectionTextBrush}" />
-                                                        <Setter TargetName="ItemChrome" Property="Background" Value="{DynamicResource SelectionBrush}" />
-                                                    </Trigger>
-                                                    <Trigger Property="IsEnabled" Value="False">
-                                                        <Setter TargetName="ItemChrome" Property="Background" Value="Transparent" />
-                                                    </Trigger>
-                                                </ControlTemplate.Triggers>
+                                                <ContentPresenter />
                                             </ControlTemplate>
                                         </Setter.Value>
                                     </Setter>
@@ -560,49 +541,80 @@
                             </ListBox.ItemContainerStyle>
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid>
-                                        <StackPanel x:Name="HeaderRow"
-                                                    Orientation="Horizontal"
-                                                    VerticalAlignment="Center"
-                                                    Margin="2,6,0,0"
-                                                    Visibility="Collapsed">
-                                            <Ellipse Width="8"
-                                                     Height="8"
-                                                     Fill="{Binding CategoryBrush}"
-                                                     VerticalAlignment="Center" />
-                                            <TextBlock Text="{Binding CategoryText}"
-                                                       Margin="7,0,0,0"
-                                                       VerticalAlignment="Center"
-                                                       Foreground="{DynamicResource TextSecondaryBrush}"
-                                                       FontSize="12"
-                                                       FontWeight="SemiBold" />
-                                        </StackPanel>
-                                        <Grid x:Name="ActionRow">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Text="{Binding ActionName}"
-                                                       Margin="15,0,0,0"
-                                                       VerticalAlignment="Center"
-                                                       TextTrimming="CharacterEllipsis" />
-                                            <TextBlock x:Name="ShortcutValueText"
-                                                       Grid.Column="1"
-                                                       Text="{Binding ShortcutText}"
-                                                       Margin="14,0,0,0"
-                                                       VerticalAlignment="Center"
-                                                       TextAlignment="Right"
-                                                       TextTrimming="CharacterEllipsis" />
-                                        </Grid>
+                                    <!-- 统一行高的单元格：保证两列网格行严格对齐，组框侧边不断缝；
+                                         组间距由标题行内部的透明上边距产生 -->
+                                    <Grid Height="34">
+                                        <Border x:Name="GroupChrome"
+                                                Background="{Binding CategoryTintBrush}"
+                                                BorderBrush="{Binding CategoryBorderBrush}"
+                                                BorderThickness="1,0,1,0"
+                                                Padding="3,0">
+                                            <Border x:Name="RowChrome"
+                                                    Margin="0,1"
+                                                    CornerRadius="5"
+                                                    Padding="10,2">
+                                            <Grid VerticalAlignment="Center">
+                                                <StackPanel x:Name="HeaderRow"
+                                                            Orientation="Horizontal"
+                                                            VerticalAlignment="Center"
+                                                            Margin="7,0,0,0"
+                                                            Visibility="Collapsed">
+                                                    <Ellipse Width="8"
+                                                             Height="8"
+                                                             Fill="{Binding CategoryBrush}"
+                                                             VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding CategoryText}"
+                                                               Margin="7,0,0,0"
+                                                               VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                                               FontSize="12"
+                                                               FontWeight="SemiBold" />
+                                                </StackPanel>
+                                                <Grid x:Name="ActionRow">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{Binding ActionName}"
+                                                               Margin="7,0,0,0"
+                                                               VerticalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock x:Name="ShortcutValueText"
+                                                               Grid.Column="1"
+                                                               Text="{Binding ShortcutText}"
+                                                               Margin="14,0,0,0"
+                                                               VerticalAlignment="Center"
+                                                               TextAlignment="Right"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                </Grid>
+                                            </Grid>
+                                            </Border>
+                                        </Border>
                                     </Grid>
                                     <DataTemplate.Triggers>
                                         <DataTrigger Binding="{Binding IsHeader}" Value="True">
                                             <Setter TargetName="HeaderRow" Property="Visibility" Value="Visible" />
                                             <Setter TargetName="ActionRow" Property="Visibility" Value="Collapsed" />
+                                            <Setter TargetName="GroupChrome" Property="BorderThickness" Value="1,1,1,0" />
+                                            <Setter TargetName="GroupChrome" Property="CornerRadius" Value="8,8,0,0" />
+                                            <Setter TargetName="GroupChrome" Property="Margin" Value="0,10,0,0" />
+                                            <Setter TargetName="GroupChrome" Property="Padding" Value="3,2,3,0" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsGroupLast}" Value="True">
+                                            <Setter TargetName="GroupChrome" Property="BorderThickness" Value="1,0,1,1" />
+                                            <Setter TargetName="GroupChrome" Property="CornerRadius" Value="0,0,8,8" />
+                                            <Setter TargetName="GroupChrome" Property="Padding" Value="3,0,3,2" />
                                         </DataTrigger>
                                         <!-- 未设置的快捷键降低视觉权重，突出已配置项 -->
                                         <DataTrigger Binding="{Binding ShortcutText}" Value="未设置">
                                             <Setter TargetName="ShortcutValueText" Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" Value="True">
+                                            <Setter TargetName="RowChrome" Property="Background" Value="{DynamicResource AccentSurfaceHoverBrush}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" Value="True">
+                                            <Setter TargetName="RowChrome" Property="Background" Value="{DynamicResource SelectionBrush}" />
+                                            <Setter TargetName="RowChrome" Property="TextElement.Foreground" Value="{DynamicResource SelectionTextBrush}" />
                                         </DataTrigger>
                                     </DataTemplate.Triggers>
                                 </DataTemplate>

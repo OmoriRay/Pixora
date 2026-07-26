@@ -347,6 +347,7 @@ public partial class ShortcutSettingsWindow : Window
             {
                 if (!string.Equals(row.Category, currentCategory, StringComparison.Ordinal))
                 {
+                    MarkLastRowAsGroupEnd(displayColumn);
                     displayColumn.Add(ShortcutDisplayRow.CreateHeader(row.Category));
                     currentCategory = row.Category;
                 }
@@ -354,6 +355,7 @@ public partial class ShortcutSettingsWindow : Window
                 displayColumn.Add(new ShortcutDisplayRow(row, row.Category));
             }
 
+            MarkLastRowAsGroupEnd(displayColumn);
             displayColumns.Add(displayColumn);
         }
 
@@ -388,6 +390,14 @@ public partial class ShortcutSettingsWindow : Window
         }
 
         return woven;
+    }
+
+    private static void MarkLastRowAsGroupEnd(List<ShortcutDisplayRow> displayColumn)
+    {
+        if (displayColumn.Count > 0 && !displayColumn[^1].IsHeader)
+        {
+            displayColumn[^1] = displayColumn[^1] with { IsGroupLast = true };
+        }
     }
 
     private static List<List<ShortcutRow>> SplitRowsAtCategoryBoundaries(IReadOnlyList<ShortcutRow> rows, int columnCount)
@@ -1048,30 +1058,37 @@ public partial class ShortcutSettingsWindow : Window
     }
     private sealed record ShortcutDisplayRow(ShortcutRow? Source, string CategoryText, bool IsHeader = false)
     {
-        // 类别强调色：分组标题前的小圆点，深浅主题下均可辨认的中间调
-        private static readonly Dictionary<string, Brush> CategoryAccentBrushes = new(StringComparer.Ordinal)
+        // 类别强调色：深浅主题下均可辨认的中间调
+        private static readonly Dictionary<string, Color> CategoryAccentColors = new(StringComparer.Ordinal)
         {
-            ["浏览"] = CreateFrozenBrush(0x4F, 0xA3, 0xE3),
-            ["查看"] = CreateFrozenBrush(0x3F, 0xBF, 0xB0),
-            ["文件"] = CreateFrozenBrush(0x9A, 0x85, 0xE8),
-            ["编辑"] = CreateFrozenBrush(0xE8, 0xA1, 0x3F),
-            ["裁剪"] = CreateFrozenBrush(0xE0, 0x77, 0xA8),
-            ["窗口"] = CreateFrozenBrush(0x6B, 0xBF, 0x59),
+            ["浏览"] = Color.FromRgb(0x4F, 0xA3, 0xE3),
+            ["查看"] = Color.FromRgb(0x3F, 0xBF, 0xB0),
+            ["文件"] = Color.FromRgb(0x9A, 0x85, 0xE8),
+            ["编辑"] = Color.FromRgb(0xE8, 0xA1, 0x3F),
+            ["裁剪"] = Color.FromRgb(0xE0, 0x77, 0xA8),
+            ["窗口"] = Color.FromRgb(0x6B, 0xBF, 0x59),
         };
 
-        private static readonly Brush FallbackCategoryBrush = CreateFrozenBrush(0x8A, 0x95, 0xA5);
+        private static readonly Color FallbackCategoryColor = Color.FromRgb(0x8A, 0x95, 0xA5);
+
+        private static readonly Dictionary<(string Category, byte Alpha), Brush> BrushCache = [];
 
         public static ShortcutDisplayRow CreateHeader(string category) => new(null, category, IsHeader: true);
 
         public static ShortcutDisplayRow CreateFiller() => new(null, string.Empty);
 
+        public bool IsGroupLast { get; init; }
+
         public bool IsFiller => Source is null && !IsHeader;
 
         public bool IsSelectable => Source is not null;
 
-        public Brush CategoryBrush => CategoryAccentBrushes.TryGetValue(CategoryText, out var brush)
-            ? brush
-            : FallbackCategoryBrush;
+        // 组标题圆点 / 组边框 / 组底色：同一色相三档透明度
+        public Brush CategoryBrush => GetCategoryBrush(0xFF);
+
+        public Brush CategoryBorderBrush => GetCategoryBrush(0x5C);
+
+        public Brush CategoryTintBrush => GetCategoryBrush(0x14);
 
         public ShortcutAction Action => Source?.Action ?? default;
 
@@ -1081,10 +1098,20 @@ public partial class ShortcutSettingsWindow : Window
 
         public string ShortcutText => Source?.ShortcutText ?? string.Empty;
 
-        private static SolidColorBrush CreateFrozenBrush(byte red, byte green, byte blue)
+        private Brush GetCategoryBrush(byte alpha)
         {
-            var brush = new SolidColorBrush(Color.FromRgb(red, green, blue));
+            var key = (CategoryText, alpha);
+            if (BrushCache.TryGetValue(key, out var cached))
+            {
+                return cached;
+            }
+
+            var color = CategoryAccentColors.TryGetValue(CategoryText, out var accent)
+                ? accent
+                : FallbackCategoryColor;
+            var brush = new SolidColorBrush(Color.FromArgb(alpha, color.R, color.G, color.B));
             brush.Freeze();
+            BrushCache[key] = brush;
             return brush;
         }
     }
