@@ -1,4 +1,5 @@
 using System.Windows;
+using Pixora.Services;
 
 namespace Pixora;
 
@@ -7,6 +8,7 @@ public partial class BatchDeletePreviewWindow : Window
     public BatchDeletePreviewWindow(string folder, string summary)
     {
         InitializeComponent();
+        ThemeManager.ApplyTo(this);
         SummaryText.Text = summary;
         FolderText.Text = $"目录：{folder}";
     }

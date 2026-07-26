@@ -25,6 +25,7 @@ public partial class BatchCompressWindow : Window
     public BatchCompressWindow(string? initialInputPath = null)
     {
         InitializeComponent();
+        ThemeManager.ApplyTo(this);
         _progressUiTimer = new DispatcherTimer(
             TimeSpan.FromMilliseconds(75),
             DispatcherPriority.Background,

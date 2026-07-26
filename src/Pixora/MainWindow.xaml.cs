@@ -235,6 +235,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public MainWindow(string? startupPath = null)
     {
         InitializeComponent();
+        ThemeManager.ApplyTo(this);
         _startupPath = startupPath;
         _memoryCacheCoordinator = new MemoryCacheCoordinator(_cache, _displayPreviewCache);
         _thumbnailImageLoader = new ThumbnailImageLoader(_thumbnailDiskCache);

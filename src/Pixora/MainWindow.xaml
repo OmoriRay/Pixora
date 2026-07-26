@@ -54,6 +54,14 @@
             </DrawingBrush.Drawing>
         </DrawingBrush>
 
+        <Style x:Key="MenuIconGlyph"
+               TargetType="{x:Type TextBlock}"
+               BasedOn="{StaticResource GlyphText}">
+            <Setter Property="Foreground" Value="{DynamicResource MenuForegroundBrush}" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
         <Style TargetType="{x:Type ContextMenu}">
             <Setter Property="Background" Value="{DynamicResource MenuBackgroundBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource MenuBorderBrush}" />
@@ -88,7 +96,7 @@
             <Setter Property="TextOptions.TextRenderingMode" Value="ClearType" />
             <Setter Property="TextOptions.TextHintingMode" Value="Fixed" />
             <Setter Property="SnapsToDevicePixels" Value="True" />
-            <Setter Property="Padding" Value="14,8" />
+            <Setter Property="Padding" Value="12,8" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -101,13 +109,23 @@
                                     SnapsToDevicePixels="True">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <ContentPresenter ContentSource="Header"
+                                    <ContentPresenter x:Name="IconPresenter"
+                                                      Grid.Column="0"
+                                                      ContentSource="Icon"
+                                                      Width="18"
+                                                      Margin="0,0,10,0"
+                                                      HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center" />
+                                    <ContentPresenter Grid.Column="1"
+                                                      ContentSource="Header"
+                                                      VerticalAlignment="Center"
                                                       RecognizesAccessKey="True" />
                                     <Path x:Name="SubmenuArrow"
-                                          Grid.Column="1"
+                                          Grid.Column="2"
                                           Width="5"
                                           Height="9"
                                           Margin="20,0,0,0"
@@ -181,34 +199,116 @@
               SizeChanged="ViewerSurface_SizeChanged">
             <Grid.ContextMenu>
                 <ContextMenu Opened="ContextMenu_Opened">
-                    <MenuItem x:Name="OpenImageMenuItem" Header="打开图片" Click="OpenImageMenuItem_Click" />
-                    <MenuItem x:Name="OpenFolderMenuItem" Header="打开目录" Click="OpenFolderMenuItem_Click" />
+                    <MenuItem x:Name="OpenImageMenuItem" Header="打开图片" Click="OpenImageMenuItem_Click">
+                        <MenuItem.Icon>
+                            <TextBlock Style="{StaticResource MenuIconGlyph}" Text="&#xE8E5;" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem x:Name="OpenFolderMenuItem" Header="打开目录" Click="OpenFolderMenuItem_Click">
+                        <MenuItem.Icon>
+                            <TextBlock Style="{StaticResource MenuIconGlyph}" Text="&#xE838;" />
+                        </MenuItem.Icon>
+                    </MenuItem>
                     <Separator />
-                    <MenuItem x:Name="FavoriteMenuItem" Header="加入收藏" Click="FavoriteMenuItem_Click" />
-                    <MenuItem x:Name="FavoritesViewMenuItem" Header="只看收藏" Click="FavoritesViewMenuItem_Click" />
+                    <MenuItem x:Name="FavoriteMenuItem" Header="加入收藏" Click="FavoriteMenuItem_Click">
+                        <MenuItem.Icon>
+                            <TextBlock Style="{StaticResource MenuIconGlyph}" Text="&#xE734;" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem x:Name="FavoritesViewMenuItem" Header="只看收藏" Click="FavoritesViewMenuItem_Click">
+                        <MenuItem.Icon>
+                            <TextBlock Style="{StaticResource MenuIconGlyph}" Text="&#xE71C;" />
+                        </MenuItem.Icon>
+                    </MenuItem>
                     <Separator />
                     <MenuItem Header="编辑与导出">
-                        <MenuItem x:Name="CropMenuItem" Header="裁剪图片" Click="CropMenuItem_Click" />
-                        <MenuItem x:Name="CircleCropMenuItem" Header="圆形裁剪" Click="CircleCropMenuItem_Click" />
-                        <MenuItem x:Name="CompressMenuItem" Header="压缩图片" Click="CompressMenuItem_Click" />
-                        <MenuItem x:Name="OpenBatchCompressToolsMenuItem" Header="批量压缩图片" Click="OpenBatchCompressToolsMenuItem_Click" />
+                        <MenuItem.Icon>
+                            <TextBlock Style="{StaticResource MenuIconGlyph}" Text="&#xE70F;" />
+                        </MenuItem.Icon>
+                        <MenuItem x:Name="CropMenuItem" Header="裁剪图片" Click="CropMenuItem_Click">
+                            <MenuItem.Icon>
+                                <TextBlock Style="{StaticResource MenuIconGlyph}" Text="&#xE7A8;" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem x:Name="CircleCropMenuItem" Header="圆形裁剪" Click="CircleCropMenuItem_Click">
+                            <MenuItem.Icon>
+                                <TextBlock Style="{StaticResource MenuIconGlyph}" Text="&#xEA3A;" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem x:Name="CompressMenuItem" Header="压缩图片" Click="CompressMenuItem_Click">
+                            <MenuItem.Icon>
+                                <TextBlock Style="{StaticResource MenuIconGlyph}" Text="&#xE73F;" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem x:Name="OpenBatchCompressToolsMenuItem" Header="批量压缩图片" Click="OpenBatchCompressToolsMenuItem_Click">
+                            <MenuItem.Icon>
+                                <TextBlock Style="{StaticResource MenuIconGlyph}" Text="&#xE762;" />
+                            </MenuItem.Icon>
+                        </MenuItem>
                         <Separator />
-                        <MenuItem x:Name="SetAsWallpaperMenuItem" Header="设为桌面壁纸" Visibility="Collapsed" Click="SetAsWallpaperMenuItem_Click" />
-                        <MenuItem x:Name="SaveVideoCoverMenuItem" Header="另存视频封面" Visibility="Collapsed" Click="SaveVideoCoverMenuItem_Click" />
+                        <MenuItem x:Name="SetAsWallpaperMenuItem" Header="设为桌面壁纸" Visibility="Collapsed" Click="SetAsWallpaperMenuItem_Click">
+                            <MenuItem.Icon>
+                                <TextBlock Style="{StaticResource MenuIconGlyph}" Text="&#xE771;" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem x:Name="SaveVideoCoverMenuItem" Header="另存视频封面" Visibility="Collapsed" Click="SaveVideoCoverMenuItem_Click">
+                            <MenuItem.Icon>
+                                <TextBlock Style="{StaticResource MenuIconGlyph}" Text="&#xE74E;" />
+                            </MenuItem.Icon>
+                        </MenuItem>
                     </MenuItem>
                     <MenuItem Header="文件操作">
-                        <MenuItem x:Name="CopyFileMenuItem" Header="复制图片文件" Click="CopyFileMenuItem_Click" />
-                        <MenuItem x:Name="CopyNameMenuItem" Header="复制文件名" Click="CopyNameMenuItem_Click" />
-                        <MenuItem x:Name="CopyPathMenuItem" Header="复制文件路径" Click="CopyPathMenuItem_Click" />
-                        <MenuItem x:Name="OpenContainingFolderMenuItem" Header="打开文件位置" Click="OpenContainingFolderMenuItem_Click" />
+                        <MenuItem.Icon>
+                            <TextBlock Style="{StaticResource MenuIconGlyph}" Text="&#xE7C3;" />
+                        </MenuItem.Icon>
+                        <MenuItem x:Name="CopyFileMenuItem" Header="复制图片文件" Click="CopyFileMenuItem_Click">
+                            <MenuItem.Icon>
+                                <TextBlock Style="{StaticResource MenuIconGlyph}" Text="&#xE8C8;" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem x:Name="CopyNameMenuItem" Header="复制文件名" Click="CopyNameMenuItem_Click">
+                            <MenuItem.Icon>
+                                <TextBlock Style="{StaticResource MenuIconGlyph}" Text="&#xE8AC;" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem x:Name="CopyPathMenuItem" Header="复制文件路径" Click="CopyPathMenuItem_Click">
+                            <MenuItem.Icon>
+                                <TextBlock Style="{StaticResource MenuIconGlyph}" Text="&#xE71B;" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem x:Name="OpenContainingFolderMenuItem" Header="打开文件位置" Click="OpenContainingFolderMenuItem_Click">
+                            <MenuItem.Icon>
+                                <TextBlock Style="{StaticResource MenuIconGlyph}" Text="&#xE8DA;" />
+                            </MenuItem.Icon>
+                        </MenuItem>
                         <Separator />
-                        <MenuItem x:Name="CopyDiagnosticsMenuItem" Header="复制诊断信息" Click="CopyDiagnosticsMenuItem_Click" />
-                        <MenuItem x:Name="BatchDeleteMenuItem" Header="批量删除当前目录媒体" Click="BatchDeleteMenuItem_Click" />
+                        <MenuItem x:Name="CopyDiagnosticsMenuItem" Header="复制诊断信息" Click="CopyDiagnosticsMenuItem_Click">
+                            <MenuItem.Icon>
+                                <TextBlock Style="{StaticResource MenuIconGlyph}" Text="&#xE9D9;" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem x:Name="BatchDeleteMenuItem" Header="批量删除当前目录媒体" Click="BatchDeleteMenuItem_Click">
+                            <MenuItem.Icon>
+                                <TextBlock Style="{StaticResource MenuIconGlyph}" Text="&#xE74D;" />
+                            </MenuItem.Icon>
+                        </MenuItem>
                     </MenuItem>
                     <Separator />
-                    <MenuItem x:Name="ToggleInfoMenuItem" Header="显示/隐藏图片信息" Click="ToggleInfoMenuItem_Click" />
-                    <MenuItem x:Name="ToggleThumbnailSidebarMenuItem" Header="隐藏缩略图栏" Click="ToggleThumbnailSidebarMenuItem_Click" />
-                    <MenuItem x:Name="ShortcutSettingsMenuItem" Header="设置" Click="ShortcutSettingsMenuItem_Click" />
+                    <MenuItem x:Name="ToggleInfoMenuItem" Header="显示/隐藏图片信息" Click="ToggleInfoMenuItem_Click">
+                        <MenuItem.Icon>
+                            <TextBlock Style="{StaticResource MenuIconGlyph}" Text="&#xE946;" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem x:Name="ToggleThumbnailSidebarMenuItem" Header="隐藏缩略图栏" Click="ToggleThumbnailSidebarMenuItem_Click">
+                        <MenuItem.Icon>
+                            <TextBlock Style="{StaticResource MenuIconGlyph}" Text="&#xE89F;" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem x:Name="ShortcutSettingsMenuItem" Header="设置" Click="ShortcutSettingsMenuItem_Click">
+                        <MenuItem.Icon>
+                            <TextBlock Style="{StaticResource MenuIconGlyph}" Text="&#xE713;" />
+                        </MenuItem.Icon>
+                    </MenuItem>
                 </ContextMenu>
             </Grid.ContextMenu>
 
@@ -221,7 +321,7 @@
                                    UseLayoutRounding="False" />
 
             <Grid x:Name="CropOverlay"
-                  Background="#33000000"
+                  Background="{DynamicResource OverlayScrimBrush}"
                   Panel.ZIndex="20"
                   Visibility="Collapsed"
                   IsHitTestVisible="False">
@@ -230,22 +330,22 @@
                         <Style x:Key="CropHandleStyle" TargetType="{x:Type Border}">
                             <Setter Property="Width" Value="12" />
                             <Setter Property="Height" Value="12" />
-                            <Setter Property="Background" Value="#F4F6F8" />
-                            <Setter Property="BorderBrush" Value="#101216" />
+                            <Setter Property="Background" Value="{DynamicResource CropHandleBrush}" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource CropHandleBorderBrush}" />
                             <Setter Property="BorderThickness" Value="1" />
                             <Setter Property="CornerRadius" Value="6" />
                             <Setter Property="Visibility" Value="Collapsed" />
                         </Style>
                     </Canvas.Resources>
                     <Border x:Name="CropSelection"
-                            Background="#20FFFFFF"
-                            BorderBrush="#F4F6F8"
+                            Background="{DynamicResource CropSelectionFillBrush}"
+                            BorderBrush="{DynamicResource CropSelectionStrokeBrush}"
                             BorderThickness="2"
                             CornerRadius="4"
                             Visibility="Collapsed" />
                     <Ellipse x:Name="CropCircleSelection"
-                             Fill="#20FFFFFF"
-                             Stroke="#F4F6F8"
+                             Fill="{DynamicResource CropSelectionFillBrush}"
+                             Stroke="{DynamicResource CropSelectionStrokeBrush}"
                              StrokeThickness="2"
                              Visibility="Collapsed" />
                     <Border x:Name="CropHandleTopLeft" Style="{StaticResource CropHandleStyle}" />
@@ -261,15 +361,25 @@
                 <Border HorizontalAlignment="Center"
                         VerticalAlignment="Top"
                         Margin="0,18,0,0"
-                        Background="#E0101216"
-                        BorderBrush="#425064"
+                        Background="{DynamicResource OverlaySurfaceBrush}"
+                        BorderBrush="{DynamicResource OverlayBorderBrush}"
                         BorderThickness="1"
-                        CornerRadius="8"
-                        Padding="14,8">
-                    <TextBlock Text="裁剪：拖出区域，可拖动边角调整，Enter 保存，Esc 取消"
-                               Foreground="#F2F5F7"
-                               FontSize="13"
-                               TextWrapping="NoWrap" />
+                        CornerRadius="{StaticResource ContainerCornerRadius}"
+                        Padding="14,8"
+                        Effect="{StaticResource OverlayShadow}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource GlyphText}"
+                                   Text="&#xE7A8;"
+                                   Margin="0,0,8,0"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource OverlaySecondaryTextBrush}"
+                                   FontSize="14" />
+                        <TextBlock Text="裁剪：拖出区域，可拖动边角调整，Enter 保存，Esc 取消"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource OverlayTextBrush}"
+                                   FontSize="13"
+                                   TextWrapping="NoWrap" />
+                    </StackPanel>
                 </Border>
             </Grid>
 
@@ -280,6 +390,17 @@
                     BorderThickness="0"
                     Padding="24">
                 <StackPanel>
+                    <Image Width="56"
+                           Height="56"
+                           Margin="0,0,0,14"
+                           HorizontalAlignment="Center"
+                           RenderOptions.BitmapScalingMode="HighQuality">
+                        <Image.Source>
+                            <BitmapImage UriSource="/Pixora;component/Assets/PixoraIcon.png"
+                                         DecodePixelWidth="112"
+                                         CacheOption="OnLoad" />
+                        </Image.Source>
+                    </Image>
                     <TextBlock Text="打开图片"
                                Foreground="{DynamicResource TextPrimaryBrush}"
                                FontSize="18"
@@ -339,16 +460,17 @@
             <Border x:Name="LoadingPanel"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
-                    Background="#D0181B21"
-                    BorderBrush="#3B4654"
+                    Background="{DynamicResource OverlaySurfaceBrush}"
+                    BorderBrush="{DynamicResource OverlayBorderBrush}"
                     BorderThickness="1"
-                    CornerRadius="8"
+                    CornerRadius="{StaticResource ContainerCornerRadius}"
                     Padding="18,12"
-                    Visibility="Collapsed">
+                    Visibility="Collapsed"
+                    Effect="{StaticResource OverlayShadow}">
                 <StackPanel>
                     <TextBlock x:Name="LoadingText"
                                Text="正在打开..."
-                               Foreground="#E6EBF0"
+                               Foreground="{DynamicResource OverlayTextBrush}"
                                FontSize="14"
                                TextAlignment="Center" />
                     <Button x:Name="CancelFolderLoadButton"
@@ -365,18 +487,19 @@
                     HorizontalAlignment="Right"
                     VerticalAlignment="Top"
                     Margin="14"
-                    Background="#E0181B21"
-                    BorderBrush="#3B4654"
+                    Background="{DynamicResource OverlaySurfaceBrush}"
+                    BorderBrush="{DynamicResource OverlayBorderBrush}"
                     BorderThickness="1"
-                    CornerRadius="8"
+                    CornerRadius="{StaticResource ContainerCornerRadius}"
                     Padding="10,7"
-                    Visibility="Collapsed">
+                    Visibility="Collapsed"
+                    Effect="{StaticResource OverlayShadow}">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock x:Name="CatalogScanText"
                                Text="正在补齐目录..."
                                AutomationProperties.LiveSetting="Polite"
                                VerticalAlignment="Center"
-                               Foreground="#E6EBF0"
+                               Foreground="{DynamicResource OverlayTextBrush}"
                                FontSize="12" />
                     <Button Content="取消"
                             AutomationProperties.Name="取消目录补齐"
@@ -394,18 +517,19 @@
                     VerticalAlignment="Top"
                     Margin="14"
                     MinWidth="66"
-                    Background="#D8101216"
-                    BorderBrush="#526070"
+                    Background="{DynamicResource OverlaySurfaceBrush}"
+                    BorderBrush="{DynamicResource OverlayBorderBrush}"
                     BorderThickness="1"
-                    CornerRadius="9"
+                    CornerRadius="{StaticResource ContainerCornerRadius}"
                     Padding="12,7"
                     Opacity="0"
                     Visibility="Collapsed"
                     IsHitTestVisible="False"
-                    Panel.ZIndex="50">
+                    Panel.ZIndex="50"
+                    Effect="{StaticResource OverlayShadow}">
                 <TextBlock x:Name="ZoomIndicatorText"
                            HorizontalAlignment="Center"
-                           Foreground="#F4F7FA"
+                           Foreground="{DynamicResource OverlayTextBrush}"
                            FontSize="14"
                            FontWeight="SemiBold"
                            Text="100%"
@@ -416,29 +540,40 @@
                     HorizontalAlignment="Left"
                     VerticalAlignment="Top"
                     Margin="14"
-                    Background="#D8171C24"
-                    BorderBrush="#4B5665"
+                    Background="{DynamicResource OverlaySurfaceRaisedBrush}"
+                    BorderBrush="{DynamicResource OverlayBorderBrush}"
                     BorderThickness="1"
                     CornerRadius="8"
                     Padding="10,6"
                     Visibility="Collapsed"
-                    IsHitTestVisible="False">
-                <TextBlock Text="视频封面"
-                           Foreground="#F2F5F7"
-                           FontSize="13"
-                           FontWeight="SemiBold" />
+                    IsHitTestVisible="False"
+                    Effect="{StaticResource OverlayShadow}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource GlyphText}"
+                               Text="&#xE714;"
+                               Margin="0,0,6,0"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource OverlayTextBrush}"
+                               FontSize="13" />
+                    <TextBlock Text="视频封面"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource OverlayTextBrush}"
+                               FontSize="13"
+                               FontWeight="SemiBold" />
+                </StackPanel>
             </Border>
 
             <Border x:Name="AnimationControlPanel"
                     HorizontalAlignment="Left"
                     VerticalAlignment="Top"
                     Margin="14,56,14,14"
-                    Background="#D8171C24"
-                    BorderBrush="#4B5665"
+                    Background="{DynamicResource OverlaySurfaceRaisedBrush}"
+                    BorderBrush="{DynamicResource OverlayBorderBrush}"
                     BorderThickness="1"
-                    CornerRadius="8"
+                    CornerRadius="{StaticResource ContainerCornerRadius}"
                     Padding="8"
-                    Visibility="Collapsed">
+                    Visibility="Collapsed"
+                    Effect="{StaticResource OverlayShadow}">
                 <StackPanel Orientation="Horizontal">
                     <Button x:Name="ToggleAnimationButton"
                             Content="暂停"
@@ -458,13 +593,14 @@
                     HorizontalAlignment="Left"
                     VerticalAlignment="Bottom"
                     Margin="14"
-                    Background="#D8101216"
-                    BorderBrush="#26313C"
+                    Background="{DynamicResource OverlaySurfaceBrush}"
+                    BorderBrush="{DynamicResource OverlayBorderSubtleBrush}"
                     BorderThickness="1"
-                    CornerRadius="8"
-                    Padding="12,9">
+                    CornerRadius="{StaticResource ContainerCornerRadius}"
+                    Padding="12,9"
+                    Effect="{StaticResource OverlayShadow}">
                 <TextBlock x:Name="InfoText"
-                           Foreground="#E8ECF0"
+                           Foreground="{DynamicResource OverlayTextBrush}"
                            FontSize="13"
                            TextWrapping="NoWrap" />
             </Border>
@@ -474,16 +610,17 @@
                     HorizontalAlignment="Center"
                     VerticalAlignment="Top"
                     Margin="0,18,0,0"
-                    Background="#D8101216"
-                    BorderBrush="#2F3B48"
+                    Background="{DynamicResource OverlaySurfaceBrush}"
+                    BorderBrush="{DynamicResource OverlayBorderSubtleBrush}"
                     BorderThickness="1"
-                    CornerRadius="8"
+                    CornerRadius="{StaticResource ContainerCornerRadius}"
                     Padding="16,9"
                     Opacity="0"
                     Visibility="Collapsed"
-                    IsHitTestVisible="False">
+                    IsHitTestVisible="False"
+                    Effect="{StaticResource OverlayShadow}">
                 <TextBlock x:Name="BoundaryToastText"
-                           Foreground="#F2F5F7"
+                           Foreground="{DynamicResource OverlayTextBrush}"
                            FontSize="14"
                            TextWrapping="NoWrap" />
             </Border>
@@ -671,7 +808,7 @@
                                                     <Style.Triggers>
                                                         <Trigger Property="IsMouseOver" Value="True">
                                                             <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
-                                                            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+                                                            <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}" />
                                                         </Trigger>
                                                         <DataTrigger Binding="{Binding IsSelected}" Value="True">
                                                             <Setter Property="Background" Value="{DynamicResource AccentSurfaceHoverBrush}" />
@@ -710,8 +847,8 @@
                                                         <Border HorizontalAlignment="Left"
                                                                 VerticalAlignment="Top"
                                                                 Margin="5"
-                                                                Background="#D8171C24"
-                                                                BorderBrush="#5D6B7E"
+                                                                Background="{DynamicResource OverlaySurfaceRaisedBrush}"
+                                                                BorderBrush="{DynamicResource OverlayBorderBrush}"
                                                                 BorderThickness="1"
                                                                 CornerRadius="4"
                                                                 Padding="5,2">
@@ -726,15 +863,15 @@
                                                                 </Style>
                                                             </Border.Style>
                                                             <TextBlock Text="视频"
-                                                                       Foreground="#F2F5F7"
+                                                                       Foreground="{DynamicResource OverlayTextBrush}"
                                                                        FontSize="10"
                                                                        FontWeight="SemiBold" />
                                                         </Border>
                                                         <Border HorizontalAlignment="Right"
                                                                 VerticalAlignment="Top"
                                                                 Margin="5"
-                                                                Background="#DA27210F"
-                                                                BorderBrush="#D9B24F"
+                                                                Background="{DynamicResource FavoriteSurfaceBrush}"
+                                                                BorderBrush="{DynamicResource FavoriteBorderBrush}"
                                                                 BorderThickness="1"
                                                                 CornerRadius="4"
                                                                 Padding="4,1">
@@ -749,7 +886,7 @@
                                                                 </Style>
                                                             </Border.Style>
                                                             <TextBlock Text="★"
-                                                                       Foreground="#FFD66B"
+                                                                       Foreground="{DynamicResource FavoriteGlyphBrush}"
                                                                        FontSize="11"
                                                                        FontWeight="Bold" />
                                                         </Border>
@@ -1068,12 +1205,10 @@
                                 </ControlTemplate>
                             </Button.Template>
                             <Button.Content>
-                                <TextBlock Text="→"
+                                <TextBlock Style="{StaticResource GlyphText}"
+                                           Text="&#xE72A;"
                                            Foreground="#EFFFFFFF"
-                                           FontFamily="Segoe UI Variable Display, Microsoft YaHei UI"
-                                           FontSize="22"
-                                           FontWeight="SemiBold"
-                                           Margin="0,-2,0,0" />
+                                           FontSize="16" />
                             </Button.Content>
                         </Button>
                     </Grid>

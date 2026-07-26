@@ -37,6 +37,7 @@
             <Setter Property="SnapsToDevicePixels" Value="True" />
         </Style>
 
+        <!-- 悬停/按下状态用不透明度叠层过渡：主题刷保持 DynamicResource，动画只作用于 Opacity -->
         <Style TargetType="{x:Type Button}">
             <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}" />
@@ -50,25 +51,81 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type Button}">
-                        <Border x:Name="ButtonChrome"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="8"
-                                Padding="{TemplateBinding Padding}"
-                                SnapsToDevicePixels="True">
-                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                        <Grid SnapsToDevicePixels="True">
+                            <Border x:Name="ButtonChrome"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="8" />
+                            <Border x:Name="HoverChrome"
+                                    Background="{DynamicResource SurfaceHoverBrush}"
+                                    BorderBrush="{DynamicResource BorderHoverBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="8"
+                                    Opacity="0" />
+                            <Border x:Name="PressedChrome"
+                                    Background="{DynamicResource SurfacePressedBrush}"
+                                    BorderBrush="{DynamicResource BorderStrongBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="8"
+                                    Opacity="0" />
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                               RecognizesAccessKey="True" />
-                        </Border>
+                        </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ButtonChrome" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
-                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}" />
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="HoverChrome"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             To="1"
+                                                             Duration="0:0:0.12">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <QuadraticEase EasingMode="EaseOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="HoverChrome"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             To="0"
+                                                             Duration="0:0:0.18">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <QuadraticEase EasingMode="EaseOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="ButtonChrome" Property="Background" Value="{DynamicResource SurfacePressedBrush}" />
-                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}" />
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="PressedChrome"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             To="1"
+                                                             Duration="0:0:0.05" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="PressedChrome"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             To="0"
+                                                             Duration="0:0:0.12" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
@@ -96,25 +153,73 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type TextBox}">
-                        <Border x:Name="TextBoxChrome"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="7"
-                                SnapsToDevicePixels="True">
+                        <Grid SnapsToDevicePixels="True">
+                            <Border x:Name="TextBoxChrome"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="8" />
+                            <Border x:Name="HoverBorder"
+                                    BorderBrush="{DynamicResource BorderHoverBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="8"
+                                    Opacity="0" />
+                            <Border x:Name="FocusChrome"
+                                    Background="{DynamicResource InputFocusedBrush}"
+                                    BorderBrush="{DynamicResource AccentBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="8"
+                                    Opacity="0" />
                             <ScrollViewer x:Name="PART_ContentHost"
                                           Margin="{TemplateBinding Padding}"
                                           VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                           HorizontalScrollBarVisibility="Hidden"
                                           VerticalScrollBarVisibility="Hidden" />
-                        </Border>
+                        </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="TextBoxChrome" Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}" />
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="HoverBorder"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             To="1"
+                                                             Duration="0:0:0.12" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="HoverBorder"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             To="0"
+                                                             Duration="0:0:0.18" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
                             </Trigger>
                             <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                                <Setter TargetName="TextBoxChrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                                <Setter TargetName="TextBoxChrome" Property="Background" Value="{DynamicResource InputFocusedBrush}" />
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="FocusChrome"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             To="1"
+                                                             Duration="0:0:0.12" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="FocusChrome"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             To="0"
+                                                             Duration="0:0:0.18" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
                             </Trigger>
                             <Trigger Property="IsReadOnly" Value="True">
                                 <Setter TargetName="TextBoxChrome" Property="Background" Value="{DynamicResource SurfaceDisabledBrush}" />
@@ -178,11 +283,23 @@
                                           IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
                                 <ToggleButton.Template>
                                     <ControlTemplate TargetType="{x:Type ToggleButton}">
-                                        <Border x:Name="ComboChrome"
-                                                Background="{TemplateBinding Background}"
-                                                BorderBrush="{TemplateBinding BorderBrush}"
-                                                BorderThickness="1"
-                                                CornerRadius="7">
+                                        <Grid SnapsToDevicePixels="True">
+                                            <Border x:Name="ComboChrome"
+                                                    Background="{TemplateBinding Background}"
+                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="8" />
+                                            <Border x:Name="ComboHoverBorder"
+                                                    BorderBrush="{DynamicResource AccentBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="8"
+                                                    Opacity="0" />
+                                            <Border x:Name="ComboOpenChrome"
+                                                    Background="{DynamicResource InputFocusedBrush}"
+                                                    BorderBrush="{DynamicResource AccentBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="8"
+                                                    Opacity="0" />
                                             <Grid>
                                                 <TextBlock Margin="10,0,34,0"
                                                            VerticalAlignment="Center"
@@ -190,22 +307,81 @@
                                                            Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type ComboBox}}}"
                                                            TextTrimming="CharacterEllipsis"
                                                            Text="{Binding SelectionBoxItem, RelativeSource={RelativeSource AncestorType={x:Type ComboBox}}}" />
-                                                <Path Data="M 0 0 L 4 4 L 8 0 Z"
+                                                <Path x:Name="ComboChevron"
+                                                      Data="M 0 0 L 4 4 L 8 0 Z"
                                                       Fill="{DynamicResource TextBodyBrush}"
                                                       Width="8"
                                                       Height="4"
                                                       HorizontalAlignment="Right"
                                                       VerticalAlignment="Center"
-                                                      Margin="0,0,12,0" />
+                                                      Margin="0,0,12,0"
+                                                      RenderTransformOrigin="0.5,0.5">
+                                                    <Path.RenderTransform>
+                                                        <RotateTransform Angle="0" />
+                                                    </Path.RenderTransform>
+                                                </Path>
                                             </Grid>
-                                        </Border>
+                                        </Grid>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="ComboChrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                <Trigger.EnterActions>
+                                                    <BeginStoryboard>
+                                                        <Storyboard>
+                                                            <DoubleAnimation Storyboard.TargetName="ComboHoverBorder"
+                                                                             Storyboard.TargetProperty="Opacity"
+                                                                             To="1"
+                                                                             Duration="0:0:0.12" />
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </Trigger.EnterActions>
+                                                <Trigger.ExitActions>
+                                                    <BeginStoryboard>
+                                                        <Storyboard>
+                                                            <DoubleAnimation Storyboard.TargetName="ComboHoverBorder"
+                                                                             Storyboard.TargetProperty="Opacity"
+                                                                             To="0"
+                                                                             Duration="0:0:0.18" />
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </Trigger.ExitActions>
                                             </Trigger>
                                             <Trigger Property="IsChecked" Value="True">
-                                                <Setter TargetName="ComboChrome" Property="Background" Value="{DynamicResource InputFocusedBrush}" />
-                                                <Setter TargetName="ComboChrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                <Trigger.EnterActions>
+                                                    <BeginStoryboard>
+                                                        <Storyboard>
+                                                            <DoubleAnimation Storyboard.TargetName="ComboOpenChrome"
+                                                                             Storyboard.TargetProperty="Opacity"
+                                                                             To="1"
+                                                                             Duration="0:0:0.12" />
+                                                            <DoubleAnimation Storyboard.TargetName="ComboChevron"
+                                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                                             To="180"
+                                                                             Duration="0:0:0.15">
+                                                                <DoubleAnimation.EasingFunction>
+                                                                    <QuadraticEase EasingMode="EaseOut" />
+                                                                </DoubleAnimation.EasingFunction>
+                                                            </DoubleAnimation>
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </Trigger.EnterActions>
+                                                <Trigger.ExitActions>
+                                                    <BeginStoryboard>
+                                                        <Storyboard>
+                                                            <DoubleAnimation Storyboard.TargetName="ComboOpenChrome"
+                                                                             Storyboard.TargetProperty="Opacity"
+                                                                             To="0"
+                                                                             Duration="0:0:0.15" />
+                                                            <DoubleAnimation Storyboard.TargetName="ComboChevron"
+                                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                                             To="0"
+                                                                             Duration="0:0:0.15">
+                                                                <DoubleAnimation.EasingFunction>
+                                                                    <QuadraticEase EasingMode="EaseOut" />
+                                                                </DoubleAnimation.EasingFunction>
+                                                            </DoubleAnimation>
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </Trigger.ExitActions>
                                             </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
@@ -220,7 +396,7 @@
                                 <Border Background="{DynamicResource SurfaceBrush}"
                                         BorderBrush="{DynamicResource BorderStrongBrush}"
                                         BorderThickness="1"
-                                        CornerRadius="7"
+                                        CornerRadius="8"
                                         MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}">
                                     <ScrollViewer MaxHeight="220">
                                         <ItemsPresenter />
@@ -252,14 +428,20 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Border x:Name="CheckChrome"
-                                    Width="19"
-                                    Height="19"
-                                    Background="{DynamicResource InputBrush}"
-                                    BorderBrush="{DynamicResource BorderStrongBrush}"
-                                    BorderThickness="1.5"
-                                    CornerRadius="5"
-                                    VerticalAlignment="Center">
+                            <Grid Width="19"
+                                  Height="19"
+                                  VerticalAlignment="Center">
+                                <Border x:Name="CheckChrome"
+                                        Background="{DynamicResource InputBrush}"
+                                        BorderBrush="{DynamicResource BorderStrongBrush}"
+                                        BorderThickness="1.5"
+                                        CornerRadius="5" />
+                                <Border x:Name="CheckFill"
+                                        Background="{DynamicResource AccentBrush}"
+                                        BorderBrush="{DynamicResource AccentHoverBrush}"
+                                        BorderThickness="1.5"
+                                        CornerRadius="5"
+                                        Opacity="0" />
                                 <Path x:Name="CheckGlyph"
                                       Data="M 3.5 9.5 L 7.5 13.5 L 15.5 5"
                                       Stroke="{DynamicResource OnAccentBrush}"
@@ -267,8 +449,8 @@
                                       StrokeStartLineCap="Round"
                                       StrokeEndLineCap="Round"
                                       StrokeLineJoin="Round"
-                                      Visibility="Collapsed" />
-                            </Border>
+                                      Opacity="0" />
+                            </Grid>
                             <ContentPresenter Grid.Column="1"
                                               Margin="8,0,0,0"
                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
@@ -279,13 +461,39 @@
                                 <Setter TargetName="CheckChrome" Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}" />
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="CheckChrome" Property="Background" Value="{DynamicResource AccentBrush}" />
-                                <Setter TargetName="CheckChrome" Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}" />
-                                <Setter TargetName="CheckGlyph" Property="Visibility" Value="Visible" />
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="CheckFill"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             To="1"
+                                                             Duration="0:0:0.1" />
+                                            <DoubleAnimation Storyboard.TargetName="CheckGlyph"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             To="1"
+                                                             Duration="0:0:0.12" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="CheckFill"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             To="0"
+                                                             Duration="0:0:0.12" />
+                                            <DoubleAnimation Storyboard.TargetName="CheckGlyph"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             To="0"
+                                                             Duration="0:0:0.08" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
                                 <Setter TargetName="CheckChrome" Property="Opacity" Value="0.55" />
+                                <Setter TargetName="CheckFill" Property="Background" Value="{DynamicResource SurfaceDisabledBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -306,22 +514,33 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Border x:Name="RadioChrome"
-                                    Width="19"
-                                    Height="19"
-                                    Background="{DynamicResource InputBrush}"
-                                    BorderBrush="{DynamicResource BorderStrongBrush}"
-                                    BorderThickness="1.5"
-                                    CornerRadius="9.5"
-                                    VerticalAlignment="Center">
+                            <Grid Width="19"
+                                  Height="19"
+                                  VerticalAlignment="Center">
+                                <Border x:Name="RadioChrome"
+                                        Background="{DynamicResource InputBrush}"
+                                        BorderBrush="{DynamicResource BorderStrongBrush}"
+                                        BorderThickness="1.5"
+                                        CornerRadius="9.5" />
+                                <Border x:Name="RadioFill"
+                                        Background="{DynamicResource AccentBrush}"
+                                        BorderBrush="{DynamicResource AccentHoverBrush}"
+                                        BorderThickness="1.5"
+                                        CornerRadius="9.5"
+                                        Opacity="0" />
                                 <Ellipse x:Name="RadioDot"
                                          Width="9"
                                          Height="9"
                                          Fill="{DynamicResource OnAccentBrush}"
                                          HorizontalAlignment="Center"
                                          VerticalAlignment="Center"
-                                         Visibility="Collapsed" />
-                            </Border>
+                                         Opacity="0"
+                                         RenderTransformOrigin="0.5,0.5">
+                                    <Ellipse.RenderTransform>
+                                        <ScaleTransform ScaleX="0.5" ScaleY="0.5" />
+                                    </Ellipse.RenderTransform>
+                                </Ellipse>
+                            </Grid>
                             <ContentPresenter Grid.Column="1"
                                               Margin="8,0,0,0"
                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
@@ -329,9 +548,58 @@
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="RadioChrome" Property="Background" Value="{DynamicResource AccentBrush}" />
-                                <Setter TargetName="RadioChrome" Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}" />
-                                <Setter TargetName="RadioDot" Property="Visibility" Value="Visible" />
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="RadioFill"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             To="1"
+                                                             Duration="0:0:0.1" />
+                                            <DoubleAnimation Storyboard.TargetName="RadioDot"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             To="1"
+                                                             Duration="0:0:0.12" />
+                                            <DoubleAnimation Storyboard.TargetName="RadioDot"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                             To="1"
+                                                             Duration="0:0:0.15">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <QuadraticEase EasingMode="EaseOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="RadioDot"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                             To="1"
+                                                             Duration="0:0:0.15">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <QuadraticEase EasingMode="EaseOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="RadioFill"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             To="0"
+                                                             Duration="0:0:0.12" />
+                                            <DoubleAnimation Storyboard.TargetName="RadioDot"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             To="0"
+                                                             Duration="0:0:0.08" />
+                                            <DoubleAnimation Storyboard.TargetName="RadioDot"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                             To="0.5"
+                                                             Duration="0:0:0.12" />
+                                            <DoubleAnimation Storyboard.TargetName="RadioDot"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                             To="0.5"
+                                                             Duration="0:0:0.12" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="RadioChrome" Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}" />
@@ -339,6 +607,7 @@
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
                                 <Setter TargetName="RadioChrome" Property="Opacity" Value="0.55" />
+                                <Setter TargetName="RadioFill" Property="Background" Value="{DynamicResource SurfaceDisabledBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -365,16 +634,44 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type Thumb}">
-                        <Border x:Name="ThumbChrome"
-                                Margin="2"
-                                Background="{TemplateBinding Background}"
-                                CornerRadius="5" />
+                        <Grid Margin="2">
+                            <Border x:Name="ThumbChrome"
+                                    Background="{TemplateBinding Background}"
+                                    CornerRadius="5" />
+                            <Border x:Name="ThumbHover"
+                                    Background="{DynamicResource ScrollThumbHoverBrush}"
+                                    CornerRadius="5"
+                                    Opacity="0" />
+                            <Border x:Name="ThumbActive"
+                                    Background="{DynamicResource ScrollThumbActiveBrush}"
+                                    CornerRadius="5"
+                                    Opacity="0" />
+                        </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource ScrollThumbHoverBrush}" />
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="ThumbHover"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             To="1"
+                                                             Duration="0:0:0.12" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="ThumbHover"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             To="0"
+                                                             Duration="0:0:0.18" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
                             </Trigger>
                             <Trigger Property="IsDragging" Value="True">
-                                <Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource ScrollThumbActiveBrush}" />
+                                <Setter TargetName="ThumbActive" Property="Opacity" Value="1" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>

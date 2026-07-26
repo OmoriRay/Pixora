@@ -50,6 +50,22 @@
     <SolidColorBrush x:Key="MenuDisabledForegroundBrush" Color="#84909B" />
     <SolidColorBrush x:Key="MenuSeparatorBrush" Color="#D4DCE4" />
 
+    <!-- 画布浮层：始终半透明，覆盖在图片上方 -->
+    <SolidColorBrush x:Key="OverlaySurfaceBrush" Color="#EAFFFFFF" />
+    <SolidColorBrush x:Key="OverlaySurfaceRaisedBrush" Color="#F2FFFFFF" />
+    <SolidColorBrush x:Key="OverlayBorderBrush" Color="#B4C0CB" />
+    <SolidColorBrush x:Key="OverlayBorderSubtleBrush" Color="#D2DAE2" />
+    <SolidColorBrush x:Key="OverlayTextBrush" Color="#16212B" />
+    <SolidColorBrush x:Key="OverlaySecondaryTextBrush" Color="#54626E" />
+    <SolidColorBrush x:Key="OverlayScrimBrush" Color="#33000000" />
+    <SolidColorBrush x:Key="CropHandleBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="CropHandleBorderBrush" Color="#16212B" />
+    <SolidColorBrush x:Key="CropSelectionFillBrush" Color="#26FFFFFF" />
+    <SolidColorBrush x:Key="CropSelectionStrokeBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="FavoriteSurfaceBrush" Color="#EAFFF3D6" />
+    <SolidColorBrush x:Key="FavoriteBorderBrush" Color="#D5A329" />
+    <SolidColorBrush x:Key="FavoriteGlyphBrush" Color="#B37C00" />
+
     <SolidColorBrush x:Key="InfoSurfaceBrush" Color="#E6F3F8" />
     <SolidColorBrush x:Key="InfoBorderBrush" Color="#98C5D8" />
     <SolidColorBrush x:Key="InfoTitleBrush" Color="#0D6189" />
@@ -57,6 +73,24 @@
     <SolidColorBrush x:Key="WarningSurfaceBrush" Color="#FFF3D6" />
     <SolidColorBrush x:Key="WarningBorderBrush" Color="#D5A329" />
     <SolidColorBrush x:Key="WarningTextBrush" Color="#745500" />
+
+    <!-- 与主题无关的共享基元：两个主题字典里保持完全相同的取值。
+         放在主题字典而不是 App.xaml，是为了让只合并主题字典的场景（例如 smoke test）也能解析。 -->
+    <CornerRadius x:Key="ContainerCornerRadius">8</CornerRadius>
+    <DropShadowEffect x:Key="OverlayShadow"
+                      BlurRadius="18"
+                      ShadowDepth="3"
+                      Direction="270"
+                      Color="#90000000"
+                      Opacity="0.34" />
+    <!-- 图标字形：显式样式不会继承隐式 TextBlock 样式，这里单独指定图标字体 -->
+    <Style x:Key="GlyphText" TargetType="{x:Type TextBlock}">
+        <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="TextOptions.TextFormattingMode" Value="Ideal" />
+        <Setter Property="TextOptions.TextRenderingMode" Value="Auto" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+    </Style>
 
     <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#CFE7F3" />
     <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#16212B" />

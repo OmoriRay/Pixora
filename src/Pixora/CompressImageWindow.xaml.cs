@@ -22,6 +22,7 @@ public partial class CompressImageWindow : Window
     public CompressImageWindow(string sourcePath, long fileSize, BitmapSource source)
     {
         InitializeComponent();
+        ThemeManager.ApplyTo(this);
         _sourcePath = sourcePath;
         _fileSize = fileSize;
         _source = source;

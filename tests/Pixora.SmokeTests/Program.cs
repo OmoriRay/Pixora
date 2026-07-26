@@ -1422,7 +1422,7 @@ internal static class Program
         Assert(!xaml.Contains("Text=\"&#xE70D;\"", StringComparison.Ordinal), "Quick-search mode icon should not show a separate drop-down arrow.");
         Assert(!xaml.Contains("x:Name=\"ModeButtonChrome\"", StringComparison.Ordinal), "Quick-search mode icon should blend into the glass bar without a separate gray selection box.");
         Assert(xaml.Contains("Click=\"QuickSearchGoButton_Click\"", StringComparison.Ordinal), "Quick search should expose a clickable go button.");
-        Assert(xaml.Contains("Text=\"→\"", StringComparison.Ordinal), "Quick search should use a forward arrow for explicit navigation.");
+        Assert(xaml.Contains("Text=\"&#xE72A;\"", StringComparison.Ordinal), "Quick search should use a forward arrow for explicit navigation.");
         Assert(xaml.Contains("InputMethod.IsInputMethodEnabled=\"True\"", StringComparison.Ordinal), "Quick search should locally enable IME for Chinese file-name input.");
         Assert(xaml.Contains("Grid.ColumnSpan=\"2\"", StringComparison.Ordinal), "Quick search should float across the main window instead of living inside the thumbnail sidebar.");
         Assert(code.Contains("ShouldShowQuickSearchThumbnailResults", StringComparison.Ordinal), "Quick search should filter thumbnail results only when the sidebar is visible.");

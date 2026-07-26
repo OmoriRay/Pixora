@@ -32,6 +32,7 @@ public partial class ShortcutSettingsWindow : Window
     {
         _originalTheme = viewerSettings.Theme;
         InitializeComponent();
+        ThemeManager.ApplyTo(this);
         _source = settings;
         _working = settings.Clone();
         _viewerSettings = viewerSettings;
