@@ -1498,7 +1498,7 @@ internal static class Program
         Assert(settingsXaml.Contains("AutomationProperties.Name=\"清理缩略图磁盘缓存\"", StringComparison.Ordinal), "Cache maintenance button should expose an accessible name.");
         Assert(
             settingsXaml.Split("Style=\"{StaticResource SettingsSection}\"", StringSplitOptions.None).Length - 1 == 5,
-            "General settings should use five flat section groups instead of nested card surfaces.");
+            "General settings should keep exactly five section cards.");
         Assert(compressXaml.Contains("ResizeMode=\"CanResize\"", StringComparison.Ordinal), "Single-image compression should be resizable on constrained work areas.");
         Assert(compressXaml.Contains("VerticalScrollBarVisibility=\"Auto\"", StringComparison.Ordinal), "Single-image compression should scroll rather than clip at small heights.");
         Assert(batchCompressXaml.Contains("MinWidth=\"720\"", StringComparison.Ordinal), "Batch compression should fit narrower desktop work areas.");

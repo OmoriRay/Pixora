@@ -72,11 +72,29 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <!-- Win11 风格设置卡片：圆角面板置于窗口背景之上 -->
         <Style x:Key="SettingsSection" TargetType="{x:Type Border}">
-            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
-            <Setter Property="BorderThickness" Value="0,0,0,1" />
-            <Setter Property="Padding" Value="4,4,4,18" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="16,14,16,16" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+        </Style>
+
+        <Style x:Key="SettingsSectionIcon"
+               TargetType="{x:Type TextBlock}"
+               BasedOn="{StaticResource GlyphText}">
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="SettingsSectionTitle" TargetType="{x:Type TextBlock}">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
     </Window.Resources>
 
@@ -136,10 +154,10 @@
                         <Border x:Name="FileBehaviorSettingsSection"
                                 Style="{StaticResource SettingsSection}">
                             <StackPanel>
-                                <TextBlock Text="文件行为"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"
-                                           FontSize="15"
-                                           FontWeight="SemiBold" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Style="{StaticResource SettingsSectionIcon}" Text="&#xE7C3;" />
+                                    <TextBlock Style="{StaticResource SettingsSectionTitle}" Text="文件行为" />
+                                </StackPanel>
                                 <TextBlock Text="保存后打开"
                                            Foreground="{DynamicResource TextSecondaryBrush}"
                                            FontSize="12"
@@ -187,10 +205,10 @@
                                 Grid.Column="2"
                                 Style="{StaticResource SettingsSection}">
                             <StackPanel>
-                                <TextBlock Text="界面"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"
-                                           FontSize="15"
-                                           FontWeight="SemiBold" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Style="{StaticResource SettingsSectionIcon}" Text="&#xE790;" />
+                                    <TextBlock Style="{StaticResource SettingsSectionTitle}" Text="界面" />
+                                </StackPanel>
                                 <TextBlock Text="外观主题"
                                            Foreground="{DynamicResource TextSecondaryBrush}"
                                            FontSize="12"
@@ -283,10 +301,10 @@
                                 Margin="0,14,0,0"
                                 Style="{StaticResource SettingsSection}">
                             <StackPanel>
-                                <TextBlock Text="性能与缓存"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"
-                                           FontSize="15"
-                                           FontWeight="SemiBold" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Style="{StaticResource SettingsSectionIcon}" Text="&#xE945;" />
+                                    <TextBlock Style="{StaticResource SettingsSectionTitle}" Text="性能与缓存" />
+                                </StackPanel>
                                 <TextBlock Text="缓存模式"
                                            Foreground="{DynamicResource TextSecondaryBrush}"
                                            FontSize="12"
@@ -394,10 +412,10 @@
                                 Margin="0,14,0,0"
                                 Style="{StaticResource SettingsSection}">
                             <StackPanel>
-                                <TextBlock Text="诊断与关于"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"
-                                           FontSize="15"
-                                           FontWeight="SemiBold" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Style="{StaticResource SettingsSectionIcon}" Text="&#xE9D9;" />
+                                    <TextBlock Style="{StaticResource SettingsSectionTitle}" Text="诊断与关于" />
+                                </StackPanel>
                                 <TextBlock x:Name="AppVersionText"
                                            Margin="0,14,0,0"
                                            Foreground="{DynamicResource TextBodyBrush}"
@@ -430,10 +448,10 @@
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
-                                <TextBlock Text="文件关联"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"
-                                           FontSize="15"
-                                           FontWeight="SemiBold" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Style="{StaticResource SettingsSectionIcon}" Text="&#xE71B;" />
+                                    <TextBlock Style="{StaticResource SettingsSectionTitle}" Text="文件关联" />
+                                </StackPanel>
                                 <TextBlock Text="先尝试直接把常见图片格式设为默认应用；当前 Windows 不支持时，会打开默认应用设置页。"
                                            Grid.Row="1"
                                            Margin="0,8,0,0"
