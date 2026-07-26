@@ -531,15 +531,15 @@
                                                                       VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
                                                 </Border>
                                                 <ControlTemplate.Triggers>
-                                                    <Trigger Property="ItemsControl.AlternationIndex" Value="1">
-                                                        <Setter TargetName="ItemChrome" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
-                                                    </Trigger>
                                                     <Trigger Property="IsMouseOver" Value="True">
                                                         <Setter TargetName="ItemChrome" Property="Background" Value="{DynamicResource AccentSurfaceHoverBrush}" />
                                                     </Trigger>
                                                     <Trigger Property="IsSelected" Value="True">
                                                         <Setter Property="Foreground" Value="{DynamicResource SelectionTextBrush}" />
                                                         <Setter TargetName="ItemChrome" Property="Background" Value="{DynamicResource SelectionBrush}" />
+                                                    </Trigger>
+                                                    <Trigger Property="IsEnabled" Value="False">
+                                                        <Setter TargetName="ItemChrome" Property="Background" Value="Transparent" />
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
@@ -551,35 +551,60 @@
                                             <Setter Property="IsEnabled" Value="False" />
                                             <Setter Property="Visibility" Value="Hidden" />
                                         </DataTrigger>
+                                        <!-- 类别标题行：仅展示，不参与选择 -->
+                                        <DataTrigger Binding="{Binding IsHeader}" Value="True">
+                                            <Setter Property="IsEnabled" Value="False" />
+                                        </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
                             </ListBox.ItemContainerStyle>
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="{Binding CategoryText}"
-                                                   Width="30"
-                                                   Margin="0,0,8,0"
-                                                   VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource TextMutedBrush}"
-                                                   FontSize="11"
-                                                   TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Grid.Column="1"
-                                                   Text="{Binding ActionName}"
-                                                   VerticalAlignment="Center"
-                                                   TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Grid.Column="2"
-                                                   Text="{Binding ShortcutText}"
-                                                   Margin="14,0,0,0"
-                                                   VerticalAlignment="Center"
-                                                   TextAlignment="Right"
-                                                   TextTrimming="CharacterEllipsis" />
+                                        <StackPanel x:Name="HeaderRow"
+                                                    Orientation="Horizontal"
+                                                    VerticalAlignment="Center"
+                                                    Margin="2,6,0,0"
+                                                    Visibility="Collapsed">
+                                            <Ellipse Width="8"
+                                                     Height="8"
+                                                     Fill="{Binding CategoryBrush}"
+                                                     VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding CategoryText}"
+                                                       Margin="7,0,0,0"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                                       FontSize="12"
+                                                       FontWeight="SemiBold" />
+                                        </StackPanel>
+                                        <Grid x:Name="ActionRow">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding ActionName}"
+                                                       Margin="15,0,0,0"
+                                                       VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock x:Name="ShortcutValueText"
+                                                       Grid.Column="1"
+                                                       Text="{Binding ShortcutText}"
+                                                       Margin="14,0,0,0"
+                                                       VerticalAlignment="Center"
+                                                       TextAlignment="Right"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </Grid>
                                     </Grid>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding IsHeader}" Value="True">
+                                            <Setter TargetName="HeaderRow" Property="Visibility" Value="Visible" />
+                                            <Setter TargetName="ActionRow" Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                        <!-- 未设置的快捷键降低视觉权重，突出已配置项 -->
+                                        <DataTrigger Binding="{Binding ShortcutText}" Value="未设置">
+                                            <Setter TargetName="ShortcutValueText" Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>

@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 
 namespace Pixora;
 
@@ -319,74 +320,74 @@ public partial class ShortcutSettingsWindow : Window
 
     private void ApplyShortcutRows(ShortcutAction? selectedAction = null, KeyboardShortcut? selectedShortcut = null)
     {
-        var rows = ArrangeShortcutRowsForDisplay(_shortcutRows, _shortcutGridColumnCount);
-        var displayRows = CreateShortcutDisplayRows(rows, _shortcutGridColumnCount);
+        var displayRows = CreateShortcutDisplayRows(_shortcutRows, _shortcutGridColumnCount);
         ShortcutGrid.ItemsSource = displayRows;
         ShortcutGrid.SelectedItem = displayRows.FirstOrDefault(row =>
-            !row.IsFiller &&
+            row.IsSelectable &&
             row.Action == selectedAction &&
             ShortcutsEqual(row.Shortcut, selectedShortcut)) ??
-            displayRows.FirstOrDefault(row => !row.IsFiller && row.Action == selectedAction) ??
-            displayRows.FirstOrDefault(row => !row.IsFiller);
+            displayRows.FirstOrDefault(row => row.IsSelectable && row.Action == selectedAction) ??
+            displayRows.FirstOrDefault(row => row.IsSelectable);
     }
 
 
-    private static IReadOnlyList<ShortcutDisplayRow> CreateShortcutDisplayRows(IReadOnlyList<ShortcutRow?> rows, int columnCount)
+    private static IReadOnlyList<ShortcutDisplayRow> CreateShortcutDisplayRows(IReadOnlyList<ShortcutRow> rows, int columnCount)
     {
-        var displayRows = new List<ShortcutDisplayRow>(rows.Count);
-        var categoryByColumn = new string?[Math.Max(1, columnCount)];
-        for (var index = 0; index < rows.Count; index++)
+        var columns = columnCount <= 1 || rows.Count <= columnCount
+            ? [rows.ToList()]
+            : SplitRowsAtCategoryBoundaries(rows, columnCount);
+
+        // 每列独立插入类别标题行
+        var displayColumns = new List<List<ShortcutDisplayRow>>(columns.Count);
+        foreach (var column in columns)
         {
-            var row = rows[index];
-            var columnIndex = index % categoryByColumn.Length;
-            if (row is null)
+            var displayColumn = new List<ShortcutDisplayRow>(column.Count + 4);
+            string? currentCategory = null;
+            foreach (var row in column)
             {
-                displayRows.Add(new ShortcutDisplayRow(null, string.Empty));
-                continue;
+                if (!string.Equals(row.Category, currentCategory, StringComparison.Ordinal))
+                {
+                    displayColumn.Add(ShortcutDisplayRow.CreateHeader(row.Category));
+                    currentCategory = row.Category;
+                }
+
+                displayColumn.Add(new ShortcutDisplayRow(row, row.Category));
             }
 
-            var categoryText = row.Category == categoryByColumn[columnIndex] ? string.Empty : row.Category;
-            displayRows.Add(new ShortcutDisplayRow(row, categoryText));
-            categoryByColumn[columnIndex] = row.Category;
+            displayColumns.Add(displayColumn);
         }
 
-        return displayRows;
-    }
-
-    private static IReadOnlyList<ShortcutRow?> ArrangeShortcutRowsForDisplay(IReadOnlyList<ShortcutRow> rows, int columnCount)
-    {
-        if (columnCount <= 1 || rows.Count <= columnCount)
+        if (displayColumns.Count == 1)
         {
-            return rows;
+            return displayColumns[0];
         }
 
-        var columns = SplitRowsAtCategoryBoundaries(rows, columnCount);
-        var rowCount = columns.Max(column => column.Count);
-        var arranged = new List<ShortcutRow?>(rowCount * columnCount);
+        // 按行编织进 WrapPanel；较短列末尾用隐藏占位行维持网格列对齐
+        var rowCount = displayColumns.Max(column => column.Count);
+        var woven = new List<ShortcutDisplayRow>(rowCount * displayColumns.Count);
         for (var rowIndex = 0; rowIndex < rowCount; rowIndex++)
         {
-            for (var columnIndex = 0; columnIndex < columnCount; columnIndex++)
+            for (var columnIndex = 0; columnIndex < displayColumns.Count; columnIndex++)
             {
-                var column = columns[columnIndex];
+                var column = displayColumns[columnIndex];
                 if (rowIndex < column.Count)
                 {
-                    arranged.Add(column[rowIndex]);
+                    woven.Add(column[rowIndex]);
                     continue;
                 }
 
-                // 该列已排完；右侧列还有内容时用占位行维持网格列对齐
-                for (var later = columnIndex + 1; later < columnCount; later++)
+                for (var later = columnIndex + 1; later < displayColumns.Count; later++)
                 {
-                    if (rowIndex < columns[later].Count)
+                    if (rowIndex < displayColumns[later].Count)
                     {
-                        arranged.Add(null);
+                        woven.Add(ShortcutDisplayRow.CreateFiller());
                         break;
                     }
                 }
             }
         }
 
-        return arranged;
+        return woven;
     }
 
     private static List<List<ShortcutRow>> SplitRowsAtCategoryBoundaries(IReadOnlyList<ShortcutRow> rows, int columnCount)
@@ -1045,9 +1046,32 @@ public partial class ShortcutSettingsWindow : Window
             _ => 1000 + (int)action,
         };
     }
-    private sealed record ShortcutDisplayRow(ShortcutRow? Source, string CategoryText)
+    private sealed record ShortcutDisplayRow(ShortcutRow? Source, string CategoryText, bool IsHeader = false)
     {
-        public bool IsFiller => Source is null;
+        // 类别强调色：分组标题前的小圆点，深浅主题下均可辨认的中间调
+        private static readonly Dictionary<string, Brush> CategoryAccentBrushes = new(StringComparer.Ordinal)
+        {
+            ["浏览"] = CreateFrozenBrush(0x4F, 0xA3, 0xE3),
+            ["查看"] = CreateFrozenBrush(0x3F, 0xBF, 0xB0),
+            ["文件"] = CreateFrozenBrush(0x9A, 0x85, 0xE8),
+            ["编辑"] = CreateFrozenBrush(0xE8, 0xA1, 0x3F),
+            ["裁剪"] = CreateFrozenBrush(0xE0, 0x77, 0xA8),
+            ["窗口"] = CreateFrozenBrush(0x6B, 0xBF, 0x59),
+        };
+
+        private static readonly Brush FallbackCategoryBrush = CreateFrozenBrush(0x8A, 0x95, 0xA5);
+
+        public static ShortcutDisplayRow CreateHeader(string category) => new(null, category, IsHeader: true);
+
+        public static ShortcutDisplayRow CreateFiller() => new(null, string.Empty);
+
+        public bool IsFiller => Source is null && !IsHeader;
+
+        public bool IsSelectable => Source is not null;
+
+        public Brush CategoryBrush => CategoryAccentBrushes.TryGetValue(CategoryText, out var brush)
+            ? brush
+            : FallbackCategoryBrush;
 
         public ShortcutAction Action => Source?.Action ?? default;
 
@@ -1056,6 +1080,13 @@ public partial class ShortcutSettingsWindow : Window
         public KeyboardShortcut? Shortcut => Source?.Shortcut;
 
         public string ShortcutText => Source?.ShortcutText ?? string.Empty;
+
+        private static SolidColorBrush CreateFrozenBrush(byte red, byte green, byte blue)
+        {
+            var brush = new SolidColorBrush(Color.FromRgb(red, green, blue));
+            brush.Freeze();
+            return brush;
+        }
     }
 
     private sealed record ShortcutRow(ShortcutAction Action, string Category, string ActionName, KeyboardShortcut? Shortcut)
