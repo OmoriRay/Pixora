@@ -38,6 +38,7 @@ git status --short --branch
 - `README.md`：面向普通用户和开源仓库首页。
 - `docs\ARCHITECTURE.md`：工程结构、核心流程、服务职责、设置文件和技术债。
 - `docs\RELEASE.md`：版本号、构建、测试、发布包检查、GitHub Release 和隐私扫描。
+- `docs\HANDOFF.md`：当前版本状态、接手检查、发布步骤和可安全清理的目录。
 - `src\Pixora\AppInfo.cs`：品牌名、数据目录、文件关联 ProgId、图标路径、旧数据迁移。
 - `src\Pixora\MainWindow.xaml` 和 `src\Pixora\MainWindow.xaml.cs`：主窗口、打开图片、目录补齐、缩略图栏、快捷键入口、收藏、裁剪、压缩、壁纸、批量删除等大部分用户工作流。
 - `src\Pixora\Services`：图片加载、视频封面、缓存、目录索引、设置、快捷键、文件关联、收藏、压缩和错误日志。

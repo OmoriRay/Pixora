@@ -33,6 +33,14 @@ dotnet publish $Project `
     --self-contained $selfContainedValue `
     --output $Output
 
+# Windows PowerShell 5.1 does not apply $ErrorActionPreference to native command
+# exit codes, so a failed publish would otherwise be packaged as if it succeeded.
+# Keep this script ASCII-only: PS 5.1 reads BOM-less .ps1 files using the system
+# code page, so non-ASCII characters here break parsing.
+if ($LASTEXITCODE -ne 0) {
+    throw "dotnet publish failed with exit code $LASTEXITCODE."
+}
+
 Write-Host "Published to: $Output"
 
 if ($Zip) {
