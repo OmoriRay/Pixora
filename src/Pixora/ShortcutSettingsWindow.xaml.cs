@@ -286,7 +286,8 @@ public partial class ShortcutSettingsWindow : Window
             return;
         }
 
-        var contentWidth = Math.Max(0, availableWidth - SystemParameters.VerticalScrollBarWidth - 2);
+        var listPadding = ShortcutGrid.Padding.Left + ShortcutGrid.Padding.Right;
+        var contentWidth = Math.Max(0, availableWidth - SystemParameters.VerticalScrollBarWidth - 2 - listPadding);
         var twoColumnItemWidth = Math.Floor((contentWidth - ShortcutGridItemGap * 2) / 2);
         var useTwoColumns = twoColumnItemWidth >= ShortcutGridMinimumTwoColumnItemWidth;
         var columnCount = useTwoColumns ? 2 : 1;
