@@ -1225,6 +1225,7 @@ internal static class Program
         var compressXaml = File.ReadAllText(Path.Combine(root, "src", "Pixora", "CompressImageWindow.xaml"));
         var batchXaml = File.ReadAllText(Path.Combine(root, "src", "Pixora", "BatchCompressWindow.xaml"));
         Assert(appXaml.Contains("Themes/Theme.Dark.xaml", StringComparison.Ordinal), "Application resources should load a deterministic default theme.");
+        Assert(appXaml.Contains("Themes/Controls.xaml", StringComparison.Ordinal), "Application resources should merge the shared control styles.");
         Assert(mainXaml.Contains("DynamicResource ViewerCanvasBaseBrush", StringComparison.Ordinal), "The image canvas should adapt its checkerboard to the active theme.");
         Assert(!settingsXaml.Contains("#101216", StringComparison.OrdinalIgnoreCase), "Settings should not retain a fixed dark window background.");
         Assert(!compressXaml.Contains("#101216", StringComparison.OrdinalIgnoreCase), "Single-image compression should not retain a fixed dark window background.");
@@ -1488,8 +1489,9 @@ internal static class Program
         Assert(manifest.Contains("PerMonitorV2,PerMonitor", StringComparison.Ordinal), "Pixora should opt into per-monitor V2 DPI awareness.");
         Assert(manifest.Contains("requestedExecutionLevel level=\"asInvoker\"", StringComparison.Ordinal), "Pixora should run with normal user privileges.");
         Assert(manifest.Contains("{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}", StringComparison.OrdinalIgnoreCase), "Pixora manifest should declare Windows 10 and later compatibility.");
-        Assert(appXaml.Contains("x:Key=\"KeyboardFocusVisual\"", StringComparison.Ordinal), "Shared controls should expose a visible keyboard-focus treatment.");
-        Assert(!appXaml.Contains("FocusVisualStyle\" Value=\"{x:Null}\"", StringComparison.Ordinal), "Shared controls should not suppress keyboard focus visuals.");
+        var controlsXaml = File.ReadAllText(Path.Combine(root, "src", "Pixora", "Themes", "Controls.xaml"));
+        Assert(controlsXaml.Contains("x:Key=\"KeyboardFocusVisual\"", StringComparison.Ordinal), "Shared controls should expose a visible keyboard-focus treatment.");
+        Assert(!controlsXaml.Contains("FocusVisualStyle\" Value=\"{x:Null}\"", StringComparison.Ordinal), "Shared controls should not suppress keyboard focus visuals.");
         Assert(mainXaml.Contains("KeyboardNavigation.TabNavigation=\"Cycle\"", StringComparison.Ordinal), "Quick search should keep Tab navigation inside its compact control group.");
         Assert(mainXaml.Contains("AutomationProperties.Name=\"快速搜索输入\"", StringComparison.Ordinal), "Quick-search input should expose an accessible name.");
         Assert(mainXaml.Contains("AutomationProperties.Name=\"执行快速搜索\"", StringComparison.Ordinal), "Quick-search go button should expose an accessible name.");
