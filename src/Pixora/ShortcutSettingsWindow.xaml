@@ -4,7 +4,7 @@
         Title="设置"
         Width="720"
         Height="540"
-        MinWidth="560"
+        MinWidth="700"
         MinHeight="460"
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource AppBackgroundBrush}"
@@ -418,13 +418,14 @@
                                           Margin="0,14,0,0"
                                           Foreground="{DynamicResource TextBodyBrush}" />
                                 <WrapPanel Orientation="Horizontal"
-                                           Margin="0,14,0,0">
+                                           Margin="0,6,0,0">
                                     <Button Content="打开错误日志位置"
                                             MinWidth="116"
-                                            Margin="0,0,8,0"
+                                            Margin="0,8,8,0"
                                             Click="OpenErrorLogFolderButton_Click" />
                                     <Button Content="复制诊断信息"
                                             MinWidth="116"
+                                            Margin="0,8,0,0"
                                             Click="CopyDiagnosticsButton_Click" />
                                 </WrapPanel>
                             </StackPanel>
@@ -449,25 +450,26 @@
                                            Foreground="{DynamicResource TextBodyBrush}"
                                            FontSize="12"
                                            TextWrapping="Wrap" />
-                                <StackPanel Grid.Row="2"
-                                            Orientation="Horizontal"
-                                            Margin="0,14,0,0">
+                                <WrapPanel Grid.Row="2"
+                                           Orientation="Horizontal"
+                                           Margin="0,6,0,0">
                                     <Button Content="关联常见图片格式"
                                             MinWidth="132"
-                                            Margin="0,0,8,0"
+                                            Margin="0,8,8,0"
                                             Click="RegisterFileAssociationsButton_Click" />
                                     <Button Content="关联并设为默认应用"
                                             MinWidth="160"
-                                            Margin="0,0,8,0"
+                                            Margin="0,8,8,0"
                                             Click="RegisterAndOpenDefaultAppsButton_Click" />
                                     <Button Content="高级一键默认"
                                             MinWidth="124"
-                                            Margin="0,0,8,0"
+                                            Margin="0,8,8,0"
                                             Click="AdvancedDefaultAssociationsButton_Click" />
                                     <Button Content="取消关联"
                                             MinWidth="88"
+                                            Margin="0,8,0,0"
                                             Click="UnregisterFileAssociationsButton_Click" />
-                                </StackPanel>
+                                </WrapPanel>
                             </Grid>
                         </Border>
                     </StackPanel>
@@ -488,6 +490,7 @@
                                  Background="{DynamicResource SurfaceBrush}"
                                  Foreground="{DynamicResource TextPrimaryBrush}"
                                  BorderThickness="0"
+                                 Padding="5"
                                  FontFamily="Microsoft YaHei UI"
                                  FontSize="13"
                                  AlternationCount="2"
@@ -522,6 +525,7 @@
                                             <ControlTemplate TargetType="{x:Type ListBoxItem}">
                                                 <Border x:Name="ItemChrome"
                                                         Background="{TemplateBinding Background}"
+                                                        CornerRadius="6"
                                                         Padding="{TemplateBinding Padding}">
                                                     <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                                                       VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />

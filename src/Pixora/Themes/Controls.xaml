@@ -239,6 +239,7 @@
                     <ControlTemplate TargetType="{x:Type ComboBoxItem}">
                         <Border x:Name="ItemChrome"
                                 Background="{TemplateBinding Background}"
+                                CornerRadius="5"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter />
                         </Border>
@@ -392,6 +393,7 @@
                                         BorderBrush="{DynamicResource BorderStrongBrush}"
                                         BorderThickness="1"
                                         CornerRadius="8"
+                                        Padding="3"
                                         MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}">
                                     <ScrollViewer MaxHeight="220">
                                         <ItemsPresenter />
