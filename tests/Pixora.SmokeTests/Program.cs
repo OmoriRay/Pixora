@@ -1116,6 +1116,7 @@ internal static class Program
         Assert(new ViewerSettings().Theme == AppTheme.Dark, "Viewer theme should remain dark by default for existing installations.");
         Assert(!new ViewerSettings().HideQuickSearchAfterJump, "Quick search should remain visible after a successful jump by default.");
         Assert(new ViewerSettings().ShowZoomIndicator, "Zoom percentage indicator should be enabled by default.");
+        Assert(new ViewerSettings().EnableSettingsReadabilityColors, "Settings readability colors should be enabled by default.");
         Assert(new ViewerSettings().ZoomIndicatorDisplayMode == ZoomIndicatorDisplayMode.Percentage, "Zoom indicator should default to percentage mode.");
         Assert(
             new ViewerSettings().MainImageCacheMegabytes == 768
@@ -1143,6 +1144,7 @@ internal static class Program
             QuickSearchOffsetY = 96.25,
             SavedFileOpenBehavior = SavedFileOpenBehavior.NewWindow,
             ConfirmDeleteToRecycleBin = false,
+            EnableSettingsReadabilityColors = false,
             SortMode = ImageSortMode.FileSizeLargest,
             LastOpenedFolder = outputFolder,
             OpenLastFolderOnStartup = true,
@@ -1175,6 +1177,7 @@ internal static class Program
         Assert(loaded.QuickSearchOffsetX == 128.5 && loaded.QuickSearchOffsetY == 96.25, "Viewer settings should persist the draggable quick-search position.");
         Assert(loaded.SavedFileOpenBehavior == SavedFileOpenBehavior.NewWindow, "Viewer settings should persist saved file open behavior.");
         Assert(!loaded.ConfirmDeleteToRecycleBin, "Viewer settings should persist delete confirmation preference.");
+        Assert(!loaded.EnableSettingsReadabilityColors, "Viewer settings should persist the readability color preference.");
         Assert(loaded.SortMode == ImageSortMode.FileSizeLargest, "Viewer settings should persist image sort mode.");
         Assert(string.Equals(loaded.LastOpenedFolder, outputFolder, StringComparison.OrdinalIgnoreCase), "Viewer settings should persist the last opened folder.");
         Assert(loaded.OpenLastFolderOnStartup, "Viewer settings should persist last-folder startup behavior.");

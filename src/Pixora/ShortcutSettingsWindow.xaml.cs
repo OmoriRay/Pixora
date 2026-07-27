@@ -68,8 +68,66 @@ public partial class ShortcutSettingsWindow : Window
         SelectComboBoxValue(ThumbnailDiskCacheSizeComboBox, viewerSettings.ThumbnailDiskCacheMegabytes, ViewerSettings.DefaultThumbnailDiskCacheMegabytes);
         _ = RefreshThumbnailDiskCacheInfoAsync();
         AppVersionText.Text = $"{AppInfo.Name} {GetAppVersion()}";
+        ReadabilityCheckBox.IsChecked = viewerSettings.EnableSettingsReadabilityColors;
+        ApplySettingsReadabilityStyling();
+        _readabilityStylingReady = true;
         RefreshRows();
         UpdateButtons();
+    }
+
+    private bool _readabilityStylingReady;
+
+    // 常规页五张卡片的类别强调色，与快捷键分组色同一色板
+    private static readonly Color FileBehaviorAccent = Color.FromRgb(0x4F, 0xA3, 0xE3);
+    private static readonly Color InterfaceAccent = Color.FromRgb(0x3F, 0xBF, 0xB0);
+    private static readonly Color PerformanceAccent = Color.FromRgb(0xE8, 0xA1, 0x3F);
+    private static readonly Color DiagnosticsAccent = Color.FromRgb(0x9A, 0x85, 0xE8);
+    private static readonly Color FileAssociationsAccent = Color.FromRgb(0x6B, 0xBF, 0x59);
+
+    private void ReadabilityCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_readabilityStylingReady)
+        {
+            return;
+        }
+
+        ApplySettingsReadabilityStyling();
+        var selected = ShortcutGrid.SelectedItem as ShortcutDisplayRow;
+        ApplyShortcutRows(selected?.Action, selected?.Shortcut);
+    }
+
+    private void ApplySettingsReadabilityStyling()
+    {
+        var enabled = ReadabilityCheckBox.IsChecked == true;
+        ShortcutDisplayRow.UseAccentColors = enabled;
+        ApplySectionAccent(FileBehaviorSettingsSection, FileBehaviorSectionIcon, FileBehaviorAccent, enabled);
+        ApplySectionAccent(InterfaceSettingsSection, InterfaceSectionIcon, InterfaceAccent, enabled);
+        ApplySectionAccent(PerformanceSettingsSection, PerformanceSectionIcon, PerformanceAccent, enabled);
+        ApplySectionAccent(DiagnosticsSettingsSection, DiagnosticsSectionIcon, DiagnosticsAccent, enabled);
+        ApplySectionAccent(FileAssociationsSettingsSection, FileAssociationsSectionIcon, FileAssociationsAccent, enabled);
+    }
+
+    private static void ApplySectionAccent(Border card, TextBlock icon, Color accent, bool enabled)
+    {
+        if (enabled)
+        {
+            card.BorderBrush = CreateFrozenBrush(Color.FromArgb(0x55, accent.R, accent.G, accent.B));
+            card.Background = CreateFrozenBrush(Color.FromArgb(0x12, accent.R, accent.G, accent.B));
+            icon.Foreground = CreateFrozenBrush(accent);
+            return;
+        }
+
+        // 关闭时回到主题资源，保持深浅主题联动
+        card.SetResourceReference(Border.BorderBrushProperty, "BorderBrush");
+        card.SetResourceReference(Border.BackgroundProperty, "SurfaceBrush");
+        icon.SetResourceReference(TextBlock.ForegroundProperty, "AccentBrush");
+    }
+
+    private static SolidColorBrush CreateFrozenBrush(Color color)
+    {
+        var brush = new SolidColorBrush(color);
+        brush.Freeze();
+        return brush;
     }
 
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -558,6 +616,7 @@ public partial class ShortcutSettingsWindow : Window
             _viewerSettings.DisplayPreviewCacheMegabytes = GetSelectedMegabytes(DisplayPreviewCacheComboBox, ViewerSettings.DefaultDisplayPreviewCacheMegabytes);
             _viewerSettings.UseAutomaticCacheSizing = IsAutomaticCacheSizingSelected();
             _viewerSettings.EnableLowMemoryProtection = LowMemoryProtectionCheckBox.IsChecked == true;
+            _viewerSettings.EnableSettingsReadabilityColors = ReadabilityCheckBox.IsChecked == true;
             _viewerSettings.UseThumbnailDiskCache = ThumbnailDiskCacheCheckBox.IsChecked == true;
             _viewerSettings.IncludePrivatePathsInDiagnostics = IncludePrivatePathsInDiagnosticsCheckBox.IsChecked == true;
             _viewerSettings.ThumbnailDiskCacheMegabytes = GetSelectedMegabytes(
@@ -1071,7 +1130,10 @@ public partial class ShortcutSettingsWindow : Window
 
         private static readonly Color FallbackCategoryColor = Color.FromRgb(0x8A, 0x95, 0xA5);
 
-        private static readonly Dictionary<(string Category, byte Alpha), Brush> BrushCache = [];
+        private static readonly Dictionary<(string Category, byte Alpha, bool Accent), Brush> BrushCache = [];
+
+        // 易读性开关：关闭后分组框透明、圆点回退为中性灰
+        public static bool UseAccentColors { get; set; } = true;
 
         public static ShortcutDisplayRow CreateHeader(string category) => new(null, category, IsHeader: true);
 
@@ -1100,13 +1162,18 @@ public partial class ShortcutSettingsWindow : Window
 
         private Brush GetCategoryBrush(byte alpha)
         {
-            var key = (CategoryText, alpha);
+            if (!UseAccentColors && alpha != 0xFF)
+            {
+                return Brushes.Transparent;
+            }
+
+            var key = (CategoryText, alpha, UseAccentColors);
             if (BrushCache.TryGetValue(key, out var cached))
             {
                 return cached;
             }
 
-            var color = CategoryAccentColors.TryGetValue(CategoryText, out var accent)
+            var color = UseAccentColors && CategoryAccentColors.TryGetValue(CategoryText, out var accent)
                 ? accent
                 : FallbackCategoryColor;
             var brush = new SolidColorBrush(Color.FromArgb(alpha, color.R, color.G, color.B));

@@ -103,6 +103,8 @@ public sealed class ViewerSettings
 
     public bool EnableLowMemoryProtection { get; set; } = true;
 
+    public bool EnableSettingsReadabilityColors { get; set; } = true;
+
     public bool UseThumbnailDiskCache { get; set; }
 
     public int ThumbnailDiskCacheMegabytes { get; set; } = DefaultThumbnailDiskCacheMegabytes;

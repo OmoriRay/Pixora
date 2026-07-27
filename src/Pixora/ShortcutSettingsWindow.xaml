@@ -110,26 +110,43 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <Border HorizontalAlignment="Left"
-                    Background="{DynamicResource SurfaceRaisedBrush}"
-                    BorderBrush="{DynamicResource BorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Padding="4">
-                <StackPanel Orientation="Horizontal">
-                    <RadioButton x:Name="GeneralTabButton"
-                                 Content="常规"
-                                 GroupName="SettingsPage"
-                                 IsChecked="True"
-                                 Style="{StaticResource SettingsNavButton}"
-                                 Checked="SettingsTab_Checked" />
-                    <RadioButton x:Name="ShortcutsTabButton"
-                                 Content="快捷键"
-                                 GroupName="SettingsPage"
-                                 Style="{StaticResource SettingsNavButton}"
-                                 Checked="SettingsTab_Checked" />
-                </StackPanel>
-            </Border>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Border HorizontalAlignment="Left"
+                        Background="{DynamicResource SurfaceRaisedBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="4">
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton x:Name="GeneralTabButton"
+                                     Content="常规"
+                                     GroupName="SettingsPage"
+                                     IsChecked="True"
+                                     Style="{StaticResource SettingsNavButton}"
+                                     Checked="SettingsTab_Checked" />
+                        <RadioButton x:Name="ShortcutsTabButton"
+                                     Content="快捷键"
+                                     GroupName="SettingsPage"
+                                     Style="{StaticResource SettingsNavButton}"
+                                     Checked="SettingsTab_Checked" />
+                    </StackPanel>
+                </Border>
+                <CheckBox x:Name="ReadabilityCheckBox"
+                          Grid.Column="2"
+                          Content="易读性"
+                          IsChecked="True"
+                          VerticalAlignment="Center"
+                          Margin="12,0,4,0"
+                          ToolTip="用颜色区分设置分组和快捷键类别"
+                          AutomationProperties.Name="易读性配色"
+                          Checked="ReadabilityCheckBox_Changed"
+                          Unchecked="ReadabilityCheckBox_Changed" />
+            </Grid>
 
             <Grid Grid.Row="1"
                   ClipToBounds="True">
@@ -144,7 +161,7 @@
                                 Style="{StaticResource SettingsSection}">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Style="{StaticResource SettingsSectionIcon}" Text="&#xE7C3;" />
+                                    <TextBlock x:Name="FileBehaviorSectionIcon" Style="{StaticResource SettingsSectionIcon}" Text="&#xE7C3;" />
                                     <TextBlock Style="{StaticResource SettingsSectionTitle}" Text="文件行为" />
                                 </StackPanel>
                                 <TextBlock Text="保存后打开"
@@ -196,7 +213,7 @@
                                 Style="{StaticResource SettingsSection}">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Style="{StaticResource SettingsSectionIcon}" Text="&#xE790;" />
+                                    <TextBlock x:Name="InterfaceSectionIcon" Style="{StaticResource SettingsSectionIcon}" Text="&#xE790;" />
                                     <TextBlock Style="{StaticResource SettingsSectionTitle}" Text="界面" />
                                 </StackPanel>
                                 <TextBlock Text="外观主题"
@@ -293,7 +310,7 @@
                                 Style="{StaticResource SettingsSection}">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Style="{StaticResource SettingsSectionIcon}" Text="&#xE945;" />
+                                    <TextBlock x:Name="PerformanceSectionIcon" Style="{StaticResource SettingsSectionIcon}" Text="&#xE945;" />
                                     <TextBlock Style="{StaticResource SettingsSectionTitle}" Text="性能与缓存" />
                                 </StackPanel>
                                 <TextBlock Text="缓存模式"
@@ -406,7 +423,7 @@
                                 Style="{StaticResource SettingsSection}">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Style="{StaticResource SettingsSectionIcon}" Text="&#xE9D9;" />
+                                    <TextBlock x:Name="DiagnosticsSectionIcon" Style="{StaticResource SettingsSectionIcon}" Text="&#xE9D9;" />
                                     <TextBlock Style="{StaticResource SettingsSectionTitle}" Text="诊断与关于" />
                                 </StackPanel>
                                 <TextBlock x:Name="AppVersionText"
@@ -441,7 +458,7 @@
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Style="{StaticResource SettingsSectionIcon}" Text="&#xE71B;" />
+                                    <TextBlock x:Name="FileAssociationsSectionIcon" Style="{StaticResource SettingsSectionIcon}" Text="&#xE71B;" />
                                     <TextBlock Style="{StaticResource SettingsSectionTitle}" Text="文件关联" />
                                 </StackPanel>
                                 <TextBlock Text="先尝试直接把常见图片格式设为默认应用；当前 Windows 不支持时，会打开默认应用设置页。"
