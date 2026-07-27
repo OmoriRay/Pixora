@@ -151,8 +151,19 @@
                               VerticalScrollBarVisibility="Auto"
                               TextOptions.TextRenderingMode="Grayscale"
                               TextOptions.TextHintingMode="Animated">
-                    <StackPanel Margin="0,12,6,0">
+                    <Grid x:Name="GeneralColumnsGrid"
+                          Margin="0,12,6,12"
+                          SizeChanged="GeneralColumnsGrid_SizeChanged">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition x:Name="GeneralRightColumnDef" Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel x:Name="GeneralLeftStack"
+                                    Grid.Column="0"
+                                    VerticalAlignment="Top">
                         <Border x:Name="FileBehaviorSettingsSection"
+                                Margin="0,0,0,14"
                                 Style="{StaticResource SettingsSection}">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal">
@@ -164,8 +175,8 @@
                                            FontSize="12"
                                            Margin="0,14,0,6" />
                                 <ComboBox x:Name="SavedFileOpenBehaviorComboBox"
-                                          Width="340"
-                                          HorizontalAlignment="Left"
+                                          MaxWidth="300"
+                                          HorizontalAlignment="Stretch"
                                           SelectedValuePath="Tag">
                                     <ComboBoxItem Content="不打开" Tag="None" />
                                     <ComboBoxItem Content="新窗口打开" Tag="NewWindow" />
@@ -204,7 +215,6 @@
                         </Border>
 
                         <Border x:Name="InterfaceSettingsSection"
-                                Margin="0,14,0,0"
                                 Style="{StaticResource SettingsSection}">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal">
@@ -216,8 +226,8 @@
                                            FontSize="12"
                                            Margin="0,14,0,6" />
                                 <ComboBox x:Name="ThemeComboBox"
-                                          Width="340"
-                                          HorizontalAlignment="Left"
+                                          MaxWidth="300"
+                                          HorizontalAlignment="Stretch"
                                           SelectedValuePath="Tag"
                                           AutomationProperties.Name="外观主题"
                                           SelectionChanged="ThemeComboBox_SelectionChanged">
@@ -242,8 +252,8 @@
                                            FontSize="12"
                                            Margin="0,16,0,6" />
                                 <ComboBox x:Name="QuickSearchModeComboBox"
-                                          Width="340"
-                                          HorizontalAlignment="Left"
+                                          MaxWidth="300"
+                                          HorizontalAlignment="Stretch"
                                           SelectedValuePath="Tag">
                                     <ComboBoxItem Content="按图片序号跳转" Tag="Index" />
                                     <ComboBoxItem Content="按文件名查找" Tag="FileName" />
@@ -281,8 +291,8 @@
                                            FontSize="12"
                                            Margin="0,12,0,6" />
                                 <ComboBox x:Name="ZoomIndicatorDisplayModeComboBox"
-                                          Width="340"
-                                          HorizontalAlignment="Left"
+                                          MaxWidth="300"
+                                          HorizontalAlignment="Stretch"
                                           SelectedValuePath="Tag"
                                           IsEnabled="{Binding IsChecked, ElementName=ShowZoomIndicatorCheckBox}">
                                     <ComboBoxItem Content="百分比（相对图片尺寸）" Tag="Percentage" />
@@ -299,10 +309,14 @@
                                           Foreground="{DynamicResource TextBodyBrush}" />
                             </StackPanel>
                         </Border>
+                        </StackPanel>
+                        <StackPanel x:Name="GeneralRightStack"
+                                    Grid.Column="2"
+                                    VerticalAlignment="Top">
 
                         <Border x:Name="PerformanceSettingsSection"
-                                Margin="0,14,0,0"
-                                Style="{StaticResource SettingsSection}">
+                                Style="{StaticResource SettingsSection}"
+                                Margin="0,0,0,14">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock x:Name="PerformanceSectionIcon" Style="{StaticResource SettingsSectionIcon}" Text="&#xE945;" />
@@ -313,8 +327,8 @@
                                            FontSize="12"
                                            Margin="0,14,0,6" />
                                 <ComboBox x:Name="CacheSizingModeComboBox"
-                                          Width="340"
-                                          HorizontalAlignment="Left"
+                                          MaxWidth="300"
+                                          HorizontalAlignment="Stretch"
                                           SelectedValuePath="Tag"
                                           AutomationProperties.Name="内存缓存模式"
                                           SelectionChanged="CacheSizingModeComboBox_SelectionChanged">
@@ -349,8 +363,8 @@
                                                FontSize="12"
                                                Margin="0,12,0,6" />
                                     <ComboBox x:Name="MainImageCacheComboBox"
-                                              Width="340"
-                                          HorizontalAlignment="Left"
+                                              MaxWidth="300"
+                                          HorizontalAlignment="Stretch"
                                               SelectedValuePath="Tag">
                                         <ComboBoxItem Content="512 MB" Tag="512" />
                                         <ComboBoxItem Content="768 MB" Tag="768" />
@@ -364,8 +378,8 @@
                                                FontSize="12"
                                                Margin="0,12,0,6" />
                                     <ComboBox x:Name="DisplayPreviewCacheComboBox"
-                                              Width="340"
-                                          HorizontalAlignment="Left"
+                                              MaxWidth="300"
+                                          HorizontalAlignment="Stretch"
                                               SelectedValuePath="Tag">
                                         <ComboBoxItem Content="128 MB" Tag="128" />
                                         <ComboBoxItem Content="192 MB" Tag="192" />
@@ -388,8 +402,8 @@
                                            FontSize="12"
                                            Margin="0,12,0,6" />
                                 <ComboBox x:Name="ThumbnailDiskCacheSizeComboBox"
-                                          Width="340"
-                                          HorizontalAlignment="Left"
+                                          MaxWidth="300"
+                                          HorizontalAlignment="Stretch"
                                           SelectedValuePath="Tag">
                                     <ComboBoxItem Content="256 MB" Tag="256" />
                                     <ComboBoxItem Content="512 MB" Tag="512" />
@@ -414,7 +428,7 @@
                         </Border>
 
                         <Border x:Name="DiagnosticsSettingsSection"
-                                Margin="0,14,0,0"
+                                Margin="0,0,0,14"
                                 Style="{StaticResource SettingsSection}">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal">
@@ -445,7 +459,7 @@
 
                         <Border x:Name="FileAssociationsSettingsSection"
                                 Style="{StaticResource SettingsSection}"
-                                Margin="0,14,0,0">
+                                Margin="0,0,0,14">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
@@ -484,7 +498,8 @@
                                 </WrapPanel>
                             </Grid>
                         </Border>
-                    </StackPanel>
+                        </StackPanel>
+                    </Grid>
                 </ScrollViewer>
                 <Grid x:Name="ShortcutsPage"
                       Margin="0,12,0,0"

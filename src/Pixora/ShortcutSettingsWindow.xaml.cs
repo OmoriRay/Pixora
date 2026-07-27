@@ -28,6 +28,9 @@ public partial class ShortcutSettingsWindow : Window
     private int _shortcutGridColumnCount = 1;
     private const double ShortcutGridItemGap = 8;
     private const double ShortcutGridMinimumTwoColumnItemWidth = 300;
+    private const double GeneralTwoColumnThreshold = 520;
+    private bool _generalTwoColumn = true;
+    private Border[]? _generalRightSections;
 
     public ShortcutSettingsWindow(ShortcutSettings settings, ViewerSettings viewerSettings)
     {
@@ -69,6 +72,7 @@ public partial class ShortcutSettingsWindow : Window
         _ = RefreshThumbnailDiskCacheInfoAsync();
         AppVersionText.Text = $"{AppInfo.Name} {GetAppVersion()}";
         ReadabilityCheckBox.IsChecked = viewerSettings.EnableSettingsReadabilityColors;
+        _generalRightSections = [PerformanceSettingsSection, DiagnosticsSettingsSection, FileAssociationsSettingsSection];
         ApplySettingsReadabilityStyling();
         _readabilityStylingReady = true;
         RefreshRows();
@@ -114,6 +118,13 @@ public partial class ShortcutSettingsWindow : Window
             card.BorderBrush = CreateFrozenBrush(Color.FromArgb(0x55, accent.R, accent.G, accent.B));
             card.Background = CreateFrozenBrush(Color.FromArgb(0x12, accent.R, accent.G, accent.B));
             icon.Foreground = CreateFrozenBrush(accent);
+            var accentBrush = CreateFrozenBrush(accent);
+            foreach (var cb in FindLogicalDescendants<CheckBox>(card))
+            {
+                cb.Resources["AccentBrush"] = accentBrush;
+                cb.Resources["AccentHoverBrush"] = accentBrush;
+            }
+
             return;
         }
 
@@ -121,6 +132,77 @@ public partial class ShortcutSettingsWindow : Window
         card.SetResourceReference(Border.BorderBrushProperty, "BorderBrush");
         card.SetResourceReference(Border.BackgroundProperty, "SurfaceBrush");
         icon.SetResourceReference(TextBlock.ForegroundProperty, "AccentBrush");
+        foreach (var cb in FindLogicalDescendants<CheckBox>(card))
+        {
+            cb.Resources.Remove("AccentBrush");
+            cb.Resources.Remove("AccentHoverBrush");
+        }
+    }
+
+    private static IEnumerable<T> FindLogicalDescendants<T>(DependencyObject parent) where T : DependencyObject
+    {
+        foreach (var child in LogicalTreeHelper.GetChildren(parent).OfType<DependencyObject>())
+        {
+            if (child is T target)
+            {
+                yield return target;
+            }
+
+            foreach (var descendant in FindLogicalDescendants<T>(child))
+            {
+                yield return descendant;
+            }
+        }
+    }
+
+    private void GeneralColumnsGrid_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var width = e.NewSize.Width;
+        if (double.IsNaN(width) || width <= 0)
+        {
+            return;
+        }
+
+        var twoColumn = width >= GeneralTwoColumnThreshold;
+        if (twoColumn == _generalTwoColumn || _generalRightSections is null)
+        {
+            return;
+        }
+
+        _generalTwoColumn = twoColumn;
+        ApplyGeneralColumnLayout(twoColumn);
+    }
+
+    private void ApplyGeneralColumnLayout(bool twoColumn)
+    {
+        if (_generalRightSections is null)
+        {
+            return;
+        }
+
+        if (twoColumn)
+        {
+            // 移回右列：先从左列末尾移出，再按顺序加入右列
+            foreach (var section in _generalRightSections)
+            {
+                GeneralLeftStack.Children.Remove(section);
+                GeneralRightStack.Children.Add(section);
+                section.Margin = new Thickness(0, 0, 0, 14);
+            }
+
+            GeneralRightColumnDef.Width = new GridLength(1, GridUnitType.Star);
+        }
+        else
+        {
+            // 折叠右列：把三张卡片移到左列末尾
+            GeneralRightStack.Children.Clear();
+            GeneralRightColumnDef.Width = new GridLength(0);
+            foreach (var section in _generalRightSections)
+            {
+                section.Margin = new Thickness(0, 0, 0, 14);
+                GeneralLeftStack.Children.Add(section);
+            }
+        }
     }
 
     private static SolidColorBrush CreateFrozenBrush(Color color)
