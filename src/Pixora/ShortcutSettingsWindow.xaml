@@ -72,11 +72,29 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <!-- Win11 风格设置卡片：圆角面板置于窗口背景之上 -->
         <Style x:Key="SettingsSection" TargetType="{x:Type Border}">
-            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
-            <Setter Property="BorderThickness" Value="0,0,0,1" />
-            <Setter Property="Padding" Value="4,4,4,18" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="16,14,16,16" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+        </Style>
+
+        <Style x:Key="SettingsSectionIcon"
+               TargetType="{x:Type TextBlock}"
+               BasedOn="{StaticResource GlyphText}">
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="SettingsSectionTitle" TargetType="{x:Type TextBlock}">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
     </Window.Resources>
 
@@ -92,26 +110,38 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <Border HorizontalAlignment="Left"
-                    Background="{DynamicResource SurfaceRaisedBrush}"
-                    BorderBrush="{DynamicResource BorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Padding="4">
-                <StackPanel Orientation="Horizontal">
-                    <RadioButton x:Name="GeneralTabButton"
-                                 Content="常规"
-                                 GroupName="SettingsPage"
-                                 IsChecked="True"
-                                 Style="{StaticResource SettingsNavButton}"
-                                 Checked="SettingsTab_Checked" />
-                    <RadioButton x:Name="ShortcutsTabButton"
-                                 Content="快捷键"
-                                 GroupName="SettingsPage"
-                                 Style="{StaticResource SettingsNavButton}"
-                                 Checked="SettingsTab_Checked" />
-                </StackPanel>
-            </Border>
+            <Grid>
+                <Border HorizontalAlignment="Center"
+                        Background="{DynamicResource SurfaceRaisedBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="4">
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton x:Name="GeneralTabButton"
+                                     Content="常规"
+                                     GroupName="SettingsPage"
+                                     IsChecked="True"
+                                     Style="{StaticResource SettingsNavButton}"
+                                     Checked="SettingsTab_Checked" />
+                        <RadioButton x:Name="ShortcutsTabButton"
+                                     Content="快捷键"
+                                     GroupName="SettingsPage"
+                                     Style="{StaticResource SettingsNavButton}"
+                                     Checked="SettingsTab_Checked" />
+                    </StackPanel>
+                </Border>
+                <CheckBox x:Name="ReadabilityCheckBox"
+                          Content="易读性"
+                          IsChecked="True"
+                          HorizontalAlignment="Right"
+                          VerticalAlignment="Center"
+                          Margin="12,0,4,0"
+                          ToolTip="用颜色区分设置分组和快捷键类别"
+                          AutomationProperties.Name="易读性配色"
+                          Checked="ReadabilityCheckBox_Changed"
+                          Unchecked="ReadabilityCheckBox_Changed" />
+            </Grid>
 
             <Grid Grid.Row="1"
                   ClipToBounds="True">
@@ -121,30 +151,31 @@
                               VerticalScrollBarVisibility="Auto"
                               TextOptions.TextRenderingMode="Grayscale"
                               TextOptions.TextHintingMode="Animated">
-                    <Grid Margin="0,12,0,0">
+                    <Grid x:Name="GeneralColumnsGrid"
+                          Margin="0,12,6,12"
+                          SizeChanged="GeneralColumnsGrid_SizeChanged">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="14" />
-                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition x:Name="GeneralRightColumnDef" Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-
+                        <StackPanel x:Name="GeneralLeftStack"
+                                    Grid.Column="0"
+                                    VerticalAlignment="Top">
                         <Border x:Name="FileBehaviorSettingsSection"
+                                Margin="0,0,0,14"
                                 Style="{StaticResource SettingsSection}">
                             <StackPanel>
-                                <TextBlock Text="文件行为"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"
-                                           FontSize="15"
-                                           FontWeight="SemiBold" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock x:Name="FileBehaviorSectionIcon" Style="{StaticResource SettingsSectionIcon}" Text="&#xE7C3;" />
+                                    <TextBlock Style="{StaticResource SettingsSectionTitle}" Text="文件行为" />
+                                </StackPanel>
                                 <TextBlock Text="保存后打开"
                                            Foreground="{DynamicResource TextSecondaryBrush}"
                                            FontSize="12"
                                            Margin="0,14,0,6" />
                                 <ComboBox x:Name="SavedFileOpenBehaviorComboBox"
+                                          MaxWidth="300"
                                           HorizontalAlignment="Stretch"
                                           SelectedValuePath="Tag">
                                     <ComboBoxItem Content="不打开" Tag="None" />
@@ -184,18 +215,18 @@
                         </Border>
 
                         <Border x:Name="InterfaceSettingsSection"
-                                Grid.Column="2"
                                 Style="{StaticResource SettingsSection}">
                             <StackPanel>
-                                <TextBlock Text="界面"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"
-                                           FontSize="15"
-                                           FontWeight="SemiBold" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock x:Name="InterfaceSectionIcon" Style="{StaticResource SettingsSectionIcon}" Text="&#xE790;" />
+                                    <TextBlock Style="{StaticResource SettingsSectionTitle}" Text="界面" />
+                                </StackPanel>
                                 <TextBlock Text="外观主题"
                                            Foreground="{DynamicResource TextSecondaryBrush}"
                                            FontSize="12"
                                            Margin="0,14,0,6" />
                                 <ComboBox x:Name="ThemeComboBox"
+                                          MaxWidth="300"
                                           HorizontalAlignment="Stretch"
                                           SelectedValuePath="Tag"
                                           AutomationProperties.Name="外观主题"
@@ -221,6 +252,7 @@
                                            FontSize="12"
                                            Margin="0,16,0,6" />
                                 <ComboBox x:Name="QuickSearchModeComboBox"
+                                          MaxWidth="300"
                                           HorizontalAlignment="Stretch"
                                           SelectedValuePath="Tag">
                                     <ComboBoxItem Content="按图片序号跳转" Tag="Index" />
@@ -259,6 +291,7 @@
                                            FontSize="12"
                                            Margin="0,12,0,6" />
                                 <ComboBox x:Name="ZoomIndicatorDisplayModeComboBox"
+                                          MaxWidth="300"
                                           HorizontalAlignment="Stretch"
                                           SelectedValuePath="Tag"
                                           IsEnabled="{Binding IsChecked, ElementName=ShowZoomIndicatorCheckBox}">
@@ -276,22 +309,25 @@
                                           Foreground="{DynamicResource TextBodyBrush}" />
                             </StackPanel>
                         </Border>
+                        </StackPanel>
+                        <StackPanel x:Name="GeneralRightStack"
+                                    Grid.Column="2"
+                                    VerticalAlignment="Top">
 
                         <Border x:Name="PerformanceSettingsSection"
-                                Grid.Row="1"
-                                Grid.Column="2"
-                                Margin="0,14,0,0"
-                                Style="{StaticResource SettingsSection}">
+                                Style="{StaticResource SettingsSection}"
+                                Margin="0,0,0,14">
                             <StackPanel>
-                                <TextBlock Text="性能与缓存"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"
-                                           FontSize="15"
-                                           FontWeight="SemiBold" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock x:Name="PerformanceSectionIcon" Style="{StaticResource SettingsSectionIcon}" Text="&#xE945;" />
+                                    <TextBlock Style="{StaticResource SettingsSectionTitle}" Text="性能与缓存" />
+                                </StackPanel>
                                 <TextBlock Text="缓存模式"
                                            Foreground="{DynamicResource TextSecondaryBrush}"
                                            FontSize="12"
                                            Margin="0,14,0,6" />
                                 <ComboBox x:Name="CacheSizingModeComboBox"
+                                          MaxWidth="300"
                                           HorizontalAlignment="Stretch"
                                           SelectedValuePath="Tag"
                                           AutomationProperties.Name="内存缓存模式"
@@ -307,7 +343,8 @@
                                         BorderThickness="1"
                                         CornerRadius="7">
                                     <StackPanel>
-                                        <TextBlock Text="已根据本机硬件自动配置"
+                                        <TextBlock x:Name="AutomaticCacheSummaryTitle"
+                                                   Text="已根据本机硬件自动配置"
                                                    Foreground="{DynamicResource InfoTitleBrush}"
                                                    FontSize="12"
                                                    FontWeight="SemiBold" />
@@ -327,7 +364,8 @@
                                                FontSize="12"
                                                Margin="0,12,0,6" />
                                     <ComboBox x:Name="MainImageCacheComboBox"
-                                              HorizontalAlignment="Stretch"
+                                              MaxWidth="300"
+                                          HorizontalAlignment="Stretch"
                                               SelectedValuePath="Tag">
                                         <ComboBoxItem Content="512 MB" Tag="512" />
                                         <ComboBoxItem Content="768 MB" Tag="768" />
@@ -341,7 +379,8 @@
                                                FontSize="12"
                                                Margin="0,12,0,6" />
                                     <ComboBox x:Name="DisplayPreviewCacheComboBox"
-                                              HorizontalAlignment="Stretch"
+                                              MaxWidth="300"
+                                          HorizontalAlignment="Stretch"
                                               SelectedValuePath="Tag">
                                         <ComboBoxItem Content="128 MB" Tag="128" />
                                         <ComboBoxItem Content="192 MB" Tag="192" />
@@ -364,6 +403,7 @@
                                            FontSize="12"
                                            Margin="0,12,0,6" />
                                 <ComboBox x:Name="ThumbnailDiskCacheSizeComboBox"
+                                          MaxWidth="300"
                                           HorizontalAlignment="Stretch"
                                           SelectedValuePath="Tag">
                                     <ComboBoxItem Content="256 MB" Tag="256" />
@@ -389,15 +429,13 @@
                         </Border>
 
                         <Border x:Name="DiagnosticsSettingsSection"
-                                Grid.Row="1"
-                                Grid.Column="0"
-                                Margin="0,14,0,0"
+                                Margin="0,0,0,14"
                                 Style="{StaticResource SettingsSection}">
                             <StackPanel>
-                                <TextBlock Text="诊断与关于"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"
-                                           FontSize="15"
-                                           FontWeight="SemiBold" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock x:Name="DiagnosticsSectionIcon" Style="{StaticResource SettingsSectionIcon}" Text="&#xE9D9;" />
+                                    <TextBlock Style="{StaticResource SettingsSectionTitle}" Text="诊断与关于" />
+                                </StackPanel>
                                 <TextBlock x:Name="AppVersionText"
                                            Margin="0,14,0,0"
                                            Foreground="{DynamicResource TextBodyBrush}"
@@ -407,60 +445,61 @@
                                           Margin="0,14,0,0"
                                           Foreground="{DynamicResource TextBodyBrush}" />
                                 <WrapPanel Orientation="Horizontal"
-                                           Margin="0,14,0,0">
+                                           Margin="0,6,0,0">
                                     <Button Content="打开错误日志位置"
                                             MinWidth="116"
-                                            Margin="0,0,8,0"
+                                            Margin="0,8,8,0"
                                             Click="OpenErrorLogFolderButton_Click" />
                                     <Button Content="复制诊断信息"
                                             MinWidth="116"
+                                            Margin="0,8,0,0"
                                             Click="CopyDiagnosticsButton_Click" />
                                 </WrapPanel>
                             </StackPanel>
                         </Border>
 
                         <Border x:Name="FileAssociationsSettingsSection"
-                                Grid.Row="2"
-                                Grid.ColumnSpan="3"
                                 Style="{StaticResource SettingsSection}"
-                                Margin="0,14,0,0">
+                                Margin="0,0,0,14">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
-                                <TextBlock Text="文件关联"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"
-                                           FontSize="15"
-                                           FontWeight="SemiBold" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock x:Name="FileAssociationsSectionIcon" Style="{StaticResource SettingsSectionIcon}" Text="&#xE71B;" />
+                                    <TextBlock Style="{StaticResource SettingsSectionTitle}" Text="文件关联" />
+                                </StackPanel>
                                 <TextBlock Text="先尝试直接把常见图片格式设为默认应用；当前 Windows 不支持时，会打开默认应用设置页。"
                                            Grid.Row="1"
                                            Margin="0,8,0,0"
                                            Foreground="{DynamicResource TextBodyBrush}"
                                            FontSize="12"
                                            TextWrapping="Wrap" />
-                                <StackPanel Grid.Row="2"
-                                            Orientation="Horizontal"
-                                            Margin="0,14,0,0">
+                                <WrapPanel Grid.Row="2"
+                                           Orientation="Horizontal"
+                                           Margin="0,6,0,0">
                                     <Button Content="关联常见图片格式"
                                             MinWidth="132"
-                                            Margin="0,0,8,0"
+                                            Margin="0,8,8,0"
                                             Click="RegisterFileAssociationsButton_Click" />
                                     <Button Content="关联并设为默认应用"
                                             MinWidth="160"
-                                            Margin="0,0,8,0"
+                                            Margin="0,8,8,0"
                                             Click="RegisterAndOpenDefaultAppsButton_Click" />
                                     <Button Content="高级一键默认"
                                             MinWidth="124"
-                                            Margin="0,0,8,0"
+                                            Margin="0,8,8,0"
                                             Click="AdvancedDefaultAssociationsButton_Click" />
                                     <Button Content="取消关联"
                                             MinWidth="88"
+                                            Margin="0,8,0,0"
                                             Click="UnregisterFileAssociationsButton_Click" />
-                                </StackPanel>
+                                </WrapPanel>
                             </Grid>
                         </Border>
+                        </StackPanel>
                     </Grid>
                 </ScrollViewer>
                 <Grid x:Name="ShortcutsPage"
@@ -479,6 +518,7 @@
                                  Background="{DynamicResource SurfaceBrush}"
                                  Foreground="{DynamicResource TextPrimaryBrush}"
                                  BorderThickness="0"
+                                 Padding="5"
                                  FontFamily="Microsoft YaHei UI"
                                  FontSize="13"
                                  AlternationCount="2"
@@ -500,66 +540,111 @@
                             <ListBox.ItemContainerStyle>
                                 <Style TargetType="{x:Type ListBoxItem}">
                                     <Setter Property="Width" Value="{Binding Tag, RelativeSource={RelativeSource AncestorType={x:Type ListBox}}}" />
-                                    <Setter Property="MinHeight" Value="30" />
-                                    <Setter Property="Margin" Value="0,0,8,4" />
-                                    <Setter Property="Padding" Value="10,4" />
-                                    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+                                    <Setter Property="Margin" Value="0,0,8,0" />
+                                    <Setter Property="Padding" Value="0" />
                                     <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
                                     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                    <Setter Property="VerticalContentAlignment" Value="Center" />
+                                    <Setter Property="VerticalContentAlignment" Value="Top" />
                                     <Setter Property="FocusVisualStyle" Value="{DynamicResource KeyboardFocusVisual}" />
                                     <Setter Property="Template">
                                         <Setter.Value>
+                                            <!-- 行视觉全部由 ItemTemplate 里的类别分组框负责 -->
                                             <ControlTemplate TargetType="{x:Type ListBoxItem}">
-                                                <Border x:Name="ItemChrome"
-                                                        Background="{TemplateBinding Background}"
-                                                        Padding="{TemplateBinding Padding}">
-                                                    <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
-                                                </Border>
-                                                <ControlTemplate.Triggers>
-                                                    <Trigger Property="ItemsControl.AlternationIndex" Value="1">
-                                                        <Setter TargetName="ItemChrome" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
-                                                    </Trigger>
-                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="ItemChrome" Property="Background" Value="{DynamicResource AccentSurfaceHoverBrush}" />
-                                                    </Trigger>
-                                                    <Trigger Property="IsSelected" Value="True">
-                                                        <Setter Property="Foreground" Value="{DynamicResource SelectionTextBrush}" />
-                                                        <Setter TargetName="ItemChrome" Property="Background" Value="{DynamicResource SelectionBrush}" />
-                                                    </Trigger>
-                                                </ControlTemplate.Triggers>
+                                                <ContentPresenter />
                                             </ControlTemplate>
                                         </Setter.Value>
                                     </Setter>
+                                    <Style.Triggers>
+                                        <!-- 分列对齐用的占位行：不可见也不可交互，仅保留布局空间 -->
+                                        <DataTrigger Binding="{Binding IsFiller}" Value="True">
+                                            <Setter Property="IsEnabled" Value="False" />
+                                            <Setter Property="Visibility" Value="Hidden" />
+                                        </DataTrigger>
+                                        <!-- 类别标题行：仅展示，不参与选择 -->
+                                        <DataTrigger Binding="{Binding IsHeader}" Value="True">
+                                            <Setter Property="IsEnabled" Value="False" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
                                 </Style>
                             </ListBox.ItemContainerStyle>
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="{Binding CategoryText}"
-                                                   Width="30"
-                                                   Margin="0,0,8,0"
-                                                   VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource TextMutedBrush}"
-                                                   FontSize="11"
-                                                   TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Grid.Column="1"
-                                                   Text="{Binding ActionName}"
-                                                   VerticalAlignment="Center"
-                                                   TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Grid.Column="2"
-                                                   Text="{Binding ShortcutText}"
-                                                   Margin="14,0,0,0"
-                                                   VerticalAlignment="Center"
-                                                   TextAlignment="Right"
-                                                   TextTrimming="CharacterEllipsis" />
+                                    <!-- 统一行高的单元格：保证两列网格行严格对齐，组框侧边不断缝；
+                                         组间距由标题行内部的透明上边距产生 -->
+                                    <Grid Height="34">
+                                        <Border x:Name="GroupChrome"
+                                                Background="{Binding CategoryTintBrush}"
+                                                BorderBrush="{Binding CategoryBorderBrush}"
+                                                BorderThickness="1,0,1,0"
+                                                Padding="3,0">
+                                            <Border x:Name="RowChrome"
+                                                    Margin="0,1"
+                                                    CornerRadius="5"
+                                                    Padding="10,2">
+                                            <Grid VerticalAlignment="Center">
+                                                <StackPanel x:Name="HeaderRow"
+                                                            Orientation="Horizontal"
+                                                            VerticalAlignment="Center"
+                                                            Margin="7,0,0,0"
+                                                            Visibility="Collapsed">
+                                                    <Ellipse Width="8"
+                                                             Height="8"
+                                                             Fill="{Binding CategoryBrush}"
+                                                             VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding CategoryText}"
+                                                               Margin="7,0,0,0"
+                                                               VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                                               FontSize="12"
+                                                               FontWeight="SemiBold" />
+                                                </StackPanel>
+                                                <Grid x:Name="ActionRow">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{Binding ActionName}"
+                                                               Margin="7,0,0,0"
+                                                               VerticalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock x:Name="ShortcutValueText"
+                                                               Grid.Column="1"
+                                                               Text="{Binding ShortcutText}"
+                                                               Margin="14,0,0,0"
+                                                               VerticalAlignment="Center"
+                                                               TextAlignment="Right"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                </Grid>
+                                            </Grid>
+                                            </Border>
+                                        </Border>
                                     </Grid>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding IsHeader}" Value="True">
+                                            <Setter TargetName="HeaderRow" Property="Visibility" Value="Visible" />
+                                            <Setter TargetName="ActionRow" Property="Visibility" Value="Collapsed" />
+                                            <Setter TargetName="GroupChrome" Property="BorderThickness" Value="1,1,1,0" />
+                                            <Setter TargetName="GroupChrome" Property="CornerRadius" Value="8,8,0,0" />
+                                            <Setter TargetName="GroupChrome" Property="Margin" Value="0,10,0,0" />
+                                            <Setter TargetName="GroupChrome" Property="Padding" Value="3,2,3,0" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsGroupLast}" Value="True">
+                                            <Setter TargetName="GroupChrome" Property="BorderThickness" Value="1,0,1,1" />
+                                            <Setter TargetName="GroupChrome" Property="CornerRadius" Value="0,0,8,8" />
+                                            <Setter TargetName="GroupChrome" Property="Padding" Value="3,0,3,2" />
+                                        </DataTrigger>
+                                        <!-- 未设置的快捷键降低视觉权重，突出已配置项 -->
+                                        <DataTrigger Binding="{Binding ShortcutText}" Value="未设置">
+                                            <Setter TargetName="ShortcutValueText" Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" Value="True">
+                                            <Setter TargetName="RowChrome" Property="Background" Value="{DynamicResource AccentSurfaceHoverBrush}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" Value="True">
+                                            <Setter TargetName="RowChrome" Property="Background" Value="{DynamicResource SelectionBrush}" />
+                                            <Setter TargetName="RowChrome" Property="TextElement.Foreground" Value="{DynamicResource SelectionTextBrush}" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
@@ -568,70 +653,64 @@
             </Grid>
         </Grid>
 
-        <Grid Grid.Row="1"
-              Margin="0,14,0,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-
+        <StackPanel Grid.Row="1"
+                    Margin="0,8,0,0">
             <TextBlock x:Name="StatusText"
-                       Margin="2,0,12,0"
-                       VerticalAlignment="Center"
+                       Margin="2,4,0,0"
                        Foreground="{DynamicResource TextSecondaryBrush}"
                        Text="选择一行后可以修改、添加或删除单个快捷键。"
                        TextTrimming="CharacterEllipsis"
                        Visibility="Collapsed" />
 
-            <StackPanel x:Name="ShortcutActionButtonsPanel"
-                        Grid.Column="1"
-                        Orientation="Horizontal"
-                        HorizontalAlignment="Right"
-                        Margin="0,0,16,0"
-                        Visibility="Collapsed">
-                <Button x:Name="EditButton"
-                        Content="修改"
-                        MinWidth="84"
-                        Padding="12,7"
-                        Margin="0,0,8,0"
-                        Click="EditButton_Click" />
-                <Button x:Name="AddButton"
-                        Content="添加"
-                        MinWidth="84"
-                        Padding="12,7"
-                        Margin="0,0,8,0"
-                        Click="AddButton_Click" />
-                <Button x:Name="DeleteButton"
-                        Content="删除选中"
-                        MinWidth="94"
-                        Padding="12,7"
-                        Margin="0,0,8,0"
-                        Click="DeleteButton_Click" />
-                <Button Content="恢复默认"
-                        MinWidth="84"
-                        Padding="12,7"
-                        Margin="0,0,8,0"
-                        Click="ResetButton_Click" />
-                <Button Content="清空所有"
-                        MinWidth="84"
-                        Padding="12,7"
-                        Click="ClearAllButton_Click" />
-            </StackPanel>
+            <!-- 窗口不够宽时按钮组自动折行，避免被截断 -->
+            <WrapPanel Orientation="Horizontal"
+                       HorizontalAlignment="Right">
+                <StackPanel x:Name="ShortcutActionButtonsPanel"
+                            Orientation="Horizontal"
+                            Margin="0,6,16,0"
+                            Visibility="Collapsed">
+                    <Button x:Name="EditButton"
+                            Content="修改"
+                            MinWidth="84"
+                            Padding="12,7"
+                            Margin="0,0,8,0"
+                            Click="EditButton_Click" />
+                    <Button x:Name="AddButton"
+                            Content="添加"
+                            MinWidth="84"
+                            Padding="12,7"
+                            Margin="0,0,8,0"
+                            Click="AddButton_Click" />
+                    <Button x:Name="DeleteButton"
+                            Content="删除选中"
+                            MinWidth="94"
+                            Padding="12,7"
+                            Margin="0,0,8,0"
+                            Click="DeleteButton_Click" />
+                    <Button Content="恢复默认"
+                            MinWidth="84"
+                            Padding="12,7"
+                            Margin="0,0,8,0"
+                            Click="ResetButton_Click" />
+                    <Button Content="清空所有"
+                            MinWidth="84"
+                            Padding="12,7"
+                            Click="ClearAllButton_Click" />
+                </StackPanel>
 
-            <StackPanel Grid.Column="2"
-                        Orientation="Horizontal"
-                        HorizontalAlignment="Right">
-                <Button Content="保存"
-                        MinWidth="84"
-                        Padding="12,7"
-                        Margin="0,0,8,0"
-                        Click="SaveButton_Click" />
-                <Button Content="取消"
-                        MinWidth="84"
-                        Padding="12,7"
-                        Click="CancelButton_Click" />
-            </StackPanel>
-        </Grid>
+                <StackPanel Orientation="Horizontal"
+                            Margin="0,6,0,0">
+                    <Button Content="保存"
+                            MinWidth="84"
+                            Padding="12,7"
+                            Margin="0,0,8,0"
+                            Click="SaveButton_Click" />
+                    <Button Content="取消"
+                            MinWidth="84"
+                            Padding="12,7"
+                            Click="CancelButton_Click" />
+                </StackPanel>
+            </WrapPanel>
+        </StackPanel>
     </Grid>
 </Window>

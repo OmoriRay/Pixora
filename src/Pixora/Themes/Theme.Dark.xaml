@@ -50,13 +50,51 @@
     <SolidColorBrush x:Key="MenuDisabledForegroundBrush" Color="#788290" />
     <SolidColorBrush x:Key="MenuSeparatorBrush" Color="#4A5260" />
 
+    <!-- 画布浮层：始终半透明，覆盖在图片上方 -->
+    <SolidColorBrush x:Key="OverlaySurfaceBrush" Color="#D8101216" />
+    <SolidColorBrush x:Key="OverlaySurfaceRaisedBrush" Color="#D8171C24" />
+    <SolidColorBrush x:Key="OverlayBorderBrush" Color="#4B5665" />
+    <SolidColorBrush x:Key="OverlayBorderSubtleBrush" Color="#26313C" />
+    <SolidColorBrush x:Key="OverlayTextBrush" Color="#F2F5F7" />
+    <SolidColorBrush x:Key="OverlaySecondaryTextBrush" Color="#B9C4D0" />
+    <SolidColorBrush x:Key="OverlayScrimBrush" Color="#33000000" />
+    <SolidColorBrush x:Key="CropHandleBrush" Color="#F4F6F8" />
+    <SolidColorBrush x:Key="CropHandleBorderBrush" Color="#101216" />
+    <SolidColorBrush x:Key="CropSelectionFillBrush" Color="#20FFFFFF" />
+    <SolidColorBrush x:Key="CropSelectionStrokeBrush" Color="#F4F6F8" />
+    <SolidColorBrush x:Key="FavoriteSurfaceBrush" Color="#DA27210F" />
+    <SolidColorBrush x:Key="FavoriteBorderBrush" Color="#D9B24F" />
+    <SolidColorBrush x:Key="FavoriteGlyphBrush" Color="#FFD66B" />
+
     <SolidColorBrush x:Key="InfoSurfaceBrush" Color="#142733" />
     <SolidColorBrush x:Key="InfoBorderBrush" Color="#315B70" />
     <SolidColorBrush x:Key="InfoTitleBrush" Color="#77CFFC" />
     <SolidColorBrush x:Key="InfoTextBrush" Color="#C8D5DE" />
+    <SolidColorBrush x:Key="PerformanceCalloutSurfaceBrush" Color="#302619" />
+    <SolidColorBrush x:Key="PerformanceCalloutBorderBrush" Color="#8A5D22" />
+    <SolidColorBrush x:Key="PerformanceCalloutTitleBrush" Color="#F3B44C" />
+    <SolidColorBrush x:Key="PerformanceCalloutTextBrush" Color="#D8C6A9" />
     <SolidColorBrush x:Key="WarningSurfaceBrush" Color="#DA27210F" />
     <SolidColorBrush x:Key="WarningBorderBrush" Color="#D9B24F" />
     <SolidColorBrush x:Key="WarningTextBrush" Color="#FFD66B" />
+
+    <!-- 与主题无关的共享基元：两个主题字典里保持完全相同的取值。
+         放在主题字典而不是 App.xaml，是为了让只合并主题字典的场景（例如 smoke test）也能解析。 -->
+    <CornerRadius x:Key="ContainerCornerRadius">8</CornerRadius>
+    <DropShadowEffect x:Key="OverlayShadow"
+                      BlurRadius="18"
+                      ShadowDepth="3"
+                      Direction="270"
+                      Color="#90000000"
+                      Opacity="0.34" />
+    <!-- 图标字形：显式样式不会继承隐式 TextBlock 样式，这里单独指定图标字体 -->
+    <Style x:Key="GlyphText" TargetType="{x:Type TextBlock}">
+        <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="TextOptions.TextFormattingMode" Value="Ideal" />
+        <Setter Property="TextOptions.TextRenderingMode" Value="Auto" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+    </Style>
 
     <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#2D4A62" />
     <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FFFFFF" />

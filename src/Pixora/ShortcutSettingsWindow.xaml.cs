@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 
 namespace Pixora;
 
@@ -27,11 +28,15 @@ public partial class ShortcutSettingsWindow : Window
     private int _shortcutGridColumnCount = 1;
     private const double ShortcutGridItemGap = 8;
     private const double ShortcutGridMinimumTwoColumnItemWidth = 300;
+    private const double GeneralTwoColumnThreshold = 520;
+    private bool _generalTwoColumn = true;
+    private Border[]? _generalRightSections;
 
     public ShortcutSettingsWindow(ShortcutSettings settings, ViewerSettings viewerSettings)
     {
         _originalTheme = viewerSettings.Theme;
         InitializeComponent();
+        ThemeManager.ApplyTo(this);
         _source = settings;
         _working = settings.Clone();
         _viewerSettings = viewerSettings;
@@ -66,8 +71,163 @@ public partial class ShortcutSettingsWindow : Window
         SelectComboBoxValue(ThumbnailDiskCacheSizeComboBox, viewerSettings.ThumbnailDiskCacheMegabytes, ViewerSettings.DefaultThumbnailDiskCacheMegabytes);
         _ = RefreshThumbnailDiskCacheInfoAsync();
         AppVersionText.Text = $"{AppInfo.Name} {GetAppVersion()}";
+        ReadabilityCheckBox.IsChecked = viewerSettings.EnableSettingsReadabilityColors;
+        _generalRightSections = [PerformanceSettingsSection, DiagnosticsSettingsSection, FileAssociationsSettingsSection];
+        ApplySettingsReadabilityStyling();
+        _readabilityStylingReady = true;
         RefreshRows();
         UpdateButtons();
+    }
+
+    private bool _readabilityStylingReady;
+
+    // 常规页五张卡片的类别强调色，与快捷键分组色同一色板
+    private static readonly Color FileBehaviorAccent = Color.FromRgb(0x4F, 0xA3, 0xE3);
+    private static readonly Color InterfaceAccent = Color.FromRgb(0x3F, 0xBF, 0xB0);
+    private static readonly Color PerformanceAccent = Color.FromRgb(0xE8, 0xA1, 0x3F);
+    private static readonly Color DiagnosticsAccent = Color.FromRgb(0x9A, 0x85, 0xE8);
+    private static readonly Color FileAssociationsAccent = Color.FromRgb(0x6B, 0xBF, 0x59);
+
+    private void ReadabilityCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_readabilityStylingReady)
+        {
+            return;
+        }
+
+        ApplySettingsReadabilityStyling();
+        var selected = ShortcutGrid.SelectedItem as ShortcutDisplayRow;
+        ApplyShortcutRows(selected?.Action, selected?.Shortcut);
+    }
+
+    private void ApplySettingsReadabilityStyling()
+    {
+        var enabled = ReadabilityCheckBox.IsChecked == true;
+        ShortcutDisplayRow.UseAccentColors = enabled;
+        ApplySectionAccent(FileBehaviorSettingsSection, FileBehaviorSectionIcon, FileBehaviorAccent, enabled);
+        ApplySectionAccent(InterfaceSettingsSection, InterfaceSectionIcon, InterfaceAccent, enabled);
+        ApplySectionAccent(PerformanceSettingsSection, PerformanceSectionIcon, PerformanceAccent, enabled);
+        ApplyPerformanceCalloutStyling(enabled);
+        ApplySectionAccent(DiagnosticsSettingsSection, DiagnosticsSectionIcon, DiagnosticsAccent, enabled);
+        ApplySectionAccent(FileAssociationsSettingsSection, FileAssociationsSectionIcon, FileAssociationsAccent, enabled);
+    }
+
+    private static void ApplySectionAccent(Border card, TextBlock icon, Color accent, bool enabled)
+    {
+        if (enabled)
+        {
+            card.BorderBrush = CreateFrozenBrush(Color.FromArgb(0x55, accent.R, accent.G, accent.B));
+            card.Background = CreateFrozenBrush(Color.FromArgb(0x12, accent.R, accent.G, accent.B));
+            icon.Foreground = CreateFrozenBrush(accent);
+            var accentBrush = CreateFrozenBrush(accent);
+            foreach (var cb in FindLogicalDescendants<CheckBox>(card))
+            {
+                cb.Resources["AccentBrush"] = accentBrush;
+                cb.Resources["AccentHoverBrush"] = accentBrush;
+            }
+
+            return;
+        }
+
+        // 关闭时回到主题资源，保持深浅主题联动
+        card.SetResourceReference(Border.BorderBrushProperty, "BorderBrush");
+        card.SetResourceReference(Border.BackgroundProperty, "SurfaceBrush");
+        icon.SetResourceReference(TextBlock.ForegroundProperty, "AccentBrush");
+        foreach (var cb in FindLogicalDescendants<CheckBox>(card))
+        {
+            cb.Resources.Remove("AccentBrush");
+            cb.Resources.Remove("AccentHoverBrush");
+        }
+    }
+
+    private void ApplyPerformanceCalloutStyling(bool readabilityEnabled)
+    {
+        if (readabilityEnabled)
+        {
+            AutomaticCacheSummaryPanel.SetResourceReference(Border.BackgroundProperty, "PerformanceCalloutSurfaceBrush");
+            AutomaticCacheSummaryPanel.SetResourceReference(Border.BorderBrushProperty, "PerformanceCalloutBorderBrush");
+            AutomaticCacheSummaryTitle.SetResourceReference(TextBlock.ForegroundProperty, "PerformanceCalloutTitleBrush");
+            AutomaticCacheSummaryText.SetResourceReference(TextBlock.ForegroundProperty, "PerformanceCalloutTextBrush");
+            return;
+        }
+
+        AutomaticCacheSummaryPanel.SetResourceReference(Border.BackgroundProperty, "InfoSurfaceBrush");
+        AutomaticCacheSummaryPanel.SetResourceReference(Border.BorderBrushProperty, "InfoBorderBrush");
+        AutomaticCacheSummaryTitle.SetResourceReference(TextBlock.ForegroundProperty, "InfoTitleBrush");
+        AutomaticCacheSummaryText.SetResourceReference(TextBlock.ForegroundProperty, "InfoTextBrush");
+    }
+
+    private static IEnumerable<T> FindLogicalDescendants<T>(DependencyObject parent) where T : DependencyObject
+    {
+        foreach (var child in LogicalTreeHelper.GetChildren(parent).OfType<DependencyObject>())
+        {
+            if (child is T target)
+            {
+                yield return target;
+            }
+
+            foreach (var descendant in FindLogicalDescendants<T>(child))
+            {
+                yield return descendant;
+            }
+        }
+    }
+
+    private void GeneralColumnsGrid_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var width = e.NewSize.Width;
+        if (double.IsNaN(width) || width <= 0)
+        {
+            return;
+        }
+
+        var twoColumn = width >= GeneralTwoColumnThreshold;
+        if (twoColumn == _generalTwoColumn || _generalRightSections is null)
+        {
+            return;
+        }
+
+        _generalTwoColumn = twoColumn;
+        ApplyGeneralColumnLayout(twoColumn);
+    }
+
+    private void ApplyGeneralColumnLayout(bool twoColumn)
+    {
+        if (_generalRightSections is null)
+        {
+            return;
+        }
+
+        if (twoColumn)
+        {
+            // 移回右列：先从左列末尾移出，再按顺序加入右列
+            foreach (var section in _generalRightSections)
+            {
+                GeneralLeftStack.Children.Remove(section);
+                GeneralRightStack.Children.Add(section);
+                section.Margin = new Thickness(0, 0, 0, 14);
+            }
+
+            GeneralRightColumnDef.Width = new GridLength(1, GridUnitType.Star);
+        }
+        else
+        {
+            // 折叠右列：把三张卡片移到左列末尾
+            GeneralRightStack.Children.Clear();
+            GeneralRightColumnDef.Width = new GridLength(0);
+            foreach (var section in _generalRightSections)
+            {
+                section.Margin = new Thickness(0, 0, 0, 14);
+                GeneralLeftStack.Children.Add(section);
+            }
+        }
+    }
+
+    private static SolidColorBrush CreateFrozenBrush(Color color)
+    {
+        var brush = new SolidColorBrush(color);
+        brush.Freeze();
+        return brush;
     }
 
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -211,8 +371,7 @@ public partial class ShortcutSettingsWindow : Window
         }
 
         var automatic = IsAutomaticCacheSizingSelected();
-        ManualCacheSettingsPanel.IsEnabled = !automatic;
-        ManualCacheSettingsPanel.Opacity = automatic ? 0.48 : 1;
+        ManualCacheSettingsPanel.Visibility = automatic ? Visibility.Collapsed : Visibility.Visible;
         AutomaticCacheSummaryPanel.Visibility = automatic ? Visibility.Visible : Visibility.Collapsed;
         if (!automatic)
         {
@@ -285,7 +444,8 @@ public partial class ShortcutSettingsWindow : Window
             return;
         }
 
-        var contentWidth = Math.Max(0, availableWidth - SystemParameters.VerticalScrollBarWidth - 2);
+        var listPadding = ShortcutGrid.Padding.Left + ShortcutGrid.Padding.Right;
+        var contentWidth = Math.Max(0, availableWidth - SystemParameters.VerticalScrollBarWidth - 2 - listPadding);
         var twoColumnItemWidth = Math.Floor((contentWidth - ShortcutGridItemGap * 2) / 2);
         var useTwoColumns = twoColumnItemWidth >= ShortcutGridMinimumTwoColumnItemWidth;
         var columnCount = useTwoColumns ? 2 : 1;
@@ -317,54 +477,132 @@ public partial class ShortcutSettingsWindow : Window
 
     private void ApplyShortcutRows(ShortcutAction? selectedAction = null, KeyboardShortcut? selectedShortcut = null)
     {
-        var rows = ArrangeShortcutRowsForDisplay(_shortcutRows, _shortcutGridColumnCount);
-        var displayRows = CreateShortcutDisplayRows(rows, _shortcutGridColumnCount);
+        var displayRows = CreateShortcutDisplayRows(_shortcutRows, _shortcutGridColumnCount);
         ShortcutGrid.ItemsSource = displayRows;
         ShortcutGrid.SelectedItem = displayRows.FirstOrDefault(row =>
+            row.IsSelectable &&
             row.Action == selectedAction &&
             ShortcutsEqual(row.Shortcut, selectedShortcut)) ??
-            displayRows.FirstOrDefault(row => row.Action == selectedAction) ??
-            displayRows.FirstOrDefault();
+            displayRows.FirstOrDefault(row => row.IsSelectable && row.Action == selectedAction) ??
+            displayRows.FirstOrDefault(row => row.IsSelectable);
     }
 
 
     private static IReadOnlyList<ShortcutDisplayRow> CreateShortcutDisplayRows(IReadOnlyList<ShortcutRow> rows, int columnCount)
     {
-        var displayRows = new List<ShortcutDisplayRow>(rows.Count);
-        var categoryByColumn = new string?[Math.Max(1, columnCount)];
-        for (var index = 0; index < rows.Count; index++)
+        var columns = columnCount <= 1 || rows.Count <= columnCount
+            ? [rows.ToList()]
+            : SplitRowsAtCategoryBoundaries(rows, columnCount);
+
+        // 每列独立插入类别标题行
+        var displayColumns = new List<List<ShortcutDisplayRow>>(columns.Count);
+        foreach (var column in columns)
         {
-            var row = rows[index];
-            var columnIndex = index % categoryByColumn.Length;
-            var categoryText = row.Category == categoryByColumn[columnIndex] ? string.Empty : row.Category;
-            displayRows.Add(new ShortcutDisplayRow(row, categoryText));
-            categoryByColumn[columnIndex] = row.Category;
+            var displayColumn = new List<ShortcutDisplayRow>(column.Count + 4);
+            string? currentCategory = null;
+            foreach (var row in column)
+            {
+                if (!string.Equals(row.Category, currentCategory, StringComparison.Ordinal))
+                {
+                    MarkLastRowAsGroupEnd(displayColumn);
+                    displayColumn.Add(ShortcutDisplayRow.CreateHeader(row.Category));
+                    currentCategory = row.Category;
+                }
+
+                displayColumn.Add(new ShortcutDisplayRow(row, row.Category));
+            }
+
+            MarkLastRowAsGroupEnd(displayColumn);
+            displayColumns.Add(displayColumn);
         }
 
-        return displayRows;
-    }
-    private static IReadOnlyList<ShortcutRow> ArrangeShortcutRowsForDisplay(IReadOnlyList<ShortcutRow> rows, int columnCount)
-    {
-        if (columnCount <= 1 || rows.Count <= columnCount)
+        if (displayColumns.Count == 1)
         {
-            return rows;
+            return displayColumns[0];
         }
 
-        var arranged = new List<ShortcutRow>(rows.Count);
-        var rowCount = (rows.Count + columnCount - 1) / columnCount;
+        // 按行编织进 WrapPanel；较短列末尾用隐藏占位行维持网格列对齐
+        var rowCount = displayColumns.Max(column => column.Count);
+        var woven = new List<ShortcutDisplayRow>(rowCount * displayColumns.Count);
         for (var rowIndex = 0; rowIndex < rowCount; rowIndex++)
         {
-            for (var columnIndex = 0; columnIndex < columnCount; columnIndex++)
+            for (var columnIndex = 0; columnIndex < displayColumns.Count; columnIndex++)
             {
-                var sourceIndex = columnIndex * rowCount + rowIndex;
-                if (sourceIndex < rows.Count)
+                var column = displayColumns[columnIndex];
+                if (rowIndex < column.Count)
                 {
-                    arranged.Add(rows[sourceIndex]);
+                    woven.Add(column[rowIndex]);
+                    continue;
+                }
+
+                for (var later = columnIndex + 1; later < displayColumns.Count; later++)
+                {
+                    if (rowIndex < displayColumns[later].Count)
+                    {
+                        woven.Add(ShortcutDisplayRow.CreateFiller());
+                        break;
+                    }
                 }
             }
         }
 
-        return arranged;
+        return woven;
+    }
+
+    private static void MarkLastRowAsGroupEnd(List<ShortcutDisplayRow> displayColumn)
+    {
+        if (displayColumn.Count > 0 && !displayColumn[^1].IsHeader)
+        {
+            displayColumn[^1] = displayColumn[^1] with { IsGroupLast = true };
+        }
+    }
+
+    private static List<List<ShortcutRow>> SplitRowsAtCategoryBoundaries(IReadOnlyList<ShortcutRow> rows, int columnCount)
+    {
+        var boundaries = new List<int>();
+        for (var index = 1; index < rows.Count; index++)
+        {
+            if (!string.Equals(rows[index].Category, rows[index - 1].Category, StringComparison.Ordinal))
+            {
+                boundaries.Add(index);
+            }
+        }
+
+        var columns = new List<List<ShortcutRow>>(columnCount);
+        var start = 0;
+        for (var columnIndex = 1; columnIndex < columnCount; columnIndex++)
+        {
+            var ideal = (int)Math.Round(rows.Count * (double)columnIndex / columnCount);
+            var cut = ideal;
+            var bestDistance = double.MaxValue;
+            foreach (var boundary in boundaries)
+            {
+                if (boundary <= start || boundary >= rows.Count)
+                {
+                    continue;
+                }
+
+                var distance = Math.Abs(boundary - ideal);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    cut = boundary;
+                }
+            }
+
+            // 单个类别过长导致切点严重失衡时，退回按数量均分
+            if (bestDistance > rows.Count / (double)(columnCount * 2))
+            {
+                cut = ideal;
+            }
+
+            cut = Math.Clamp(cut, start + 1, rows.Count - 1);
+            columns.Add(rows.Skip(start).Take(cut - start).ToList());
+            start = cut;
+        }
+
+        columns.Add(rows.Skip(start).ToList());
+        return columns;
     }
     private void EditButton_Click(object sender, RoutedEventArgs e)
     {
@@ -477,6 +715,7 @@ public partial class ShortcutSettingsWindow : Window
             _viewerSettings.DisplayPreviewCacheMegabytes = GetSelectedMegabytes(DisplayPreviewCacheComboBox, ViewerSettings.DefaultDisplayPreviewCacheMegabytes);
             _viewerSettings.UseAutomaticCacheSizing = IsAutomaticCacheSizingSelected();
             _viewerSettings.EnableLowMemoryProtection = LowMemoryProtectionCheckBox.IsChecked == true;
+            _viewerSettings.EnableSettingsReadabilityColors = ReadabilityCheckBox.IsChecked == true;
             _viewerSettings.UseThumbnailDiskCache = ThumbnailDiskCacheCheckBox.IsChecked == true;
             _viewerSettings.IncludePrivatePathsInDiagnostics = IncludePrivatePathsInDiagnosticsCheckBox.IsChecked == true;
             _viewerSettings.ThumbnailDiskCacheMegabytes = GetSelectedMegabytes(
@@ -975,15 +1214,72 @@ public partial class ShortcutSettingsWindow : Window
             _ => 1000 + (int)action,
         };
     }
-    private sealed record ShortcutDisplayRow(ShortcutRow Source, string CategoryText)
+    private sealed record ShortcutDisplayRow(ShortcutRow? Source, string CategoryText, bool IsHeader = false)
     {
-        public ShortcutAction Action => Source.Action;
+        // 类别强调色：深浅主题下均可辨认的中间调
+        private static readonly Dictionary<string, Color> CategoryAccentColors = new(StringComparer.Ordinal)
+        {
+            ["浏览"] = Color.FromRgb(0x4F, 0xA3, 0xE3),
+            ["查看"] = Color.FromRgb(0x3F, 0xBF, 0xB0),
+            ["文件"] = Color.FromRgb(0x9A, 0x85, 0xE8),
+            ["编辑"] = Color.FromRgb(0xE8, 0xA1, 0x3F),
+            ["裁剪"] = Color.FromRgb(0xE0, 0x77, 0xA8),
+            ["窗口"] = Color.FromRgb(0x6B, 0xBF, 0x59),
+        };
 
-        public string ActionName => Source.ActionName;
+        private static readonly Color FallbackCategoryColor = Color.FromRgb(0x8A, 0x95, 0xA5);
 
-        public KeyboardShortcut? Shortcut => Source.Shortcut;
+        private static readonly Dictionary<(string Category, byte Alpha, bool Accent), Brush> BrushCache = [];
 
-        public string ShortcutText => Source.ShortcutText;
+        // 易读性开关：关闭后分组框透明、圆点回退为中性灰
+        public static bool UseAccentColors { get; set; } = true;
+
+        public static ShortcutDisplayRow CreateHeader(string category) => new(null, category, IsHeader: true);
+
+        public static ShortcutDisplayRow CreateFiller() => new(null, string.Empty);
+
+        public bool IsGroupLast { get; init; }
+
+        public bool IsFiller => Source is null && !IsHeader;
+
+        public bool IsSelectable => Source is not null;
+
+        // 组标题圆点 / 组边框 / 组底色：同一色相三档透明度
+        public Brush CategoryBrush => GetCategoryBrush(0xFF);
+
+        public Brush CategoryBorderBrush => GetCategoryBrush(0x5C);
+
+        public Brush CategoryTintBrush => GetCategoryBrush(0x14);
+
+        public ShortcutAction Action => Source?.Action ?? default;
+
+        public string ActionName => Source?.ActionName ?? string.Empty;
+
+        public KeyboardShortcut? Shortcut => Source?.Shortcut;
+
+        public string ShortcutText => Source?.ShortcutText ?? string.Empty;
+
+        private Brush GetCategoryBrush(byte alpha)
+        {
+            if (!UseAccentColors && alpha != 0xFF)
+            {
+                return Brushes.Transparent;
+            }
+
+            var key = (CategoryText, alpha, UseAccentColors);
+            if (BrushCache.TryGetValue(key, out var cached))
+            {
+                return cached;
+            }
+
+            var color = UseAccentColors && CategoryAccentColors.TryGetValue(CategoryText, out var accent)
+                ? accent
+                : FallbackCategoryColor;
+            var brush = new SolidColorBrush(Color.FromArgb(alpha, color.R, color.G, color.B));
+            brush.Freeze();
+            BrushCache[key] = brush;
+            return brush;
+        }
     }
 
     private sealed record ShortcutRow(ShortcutAction Action, string Category, string ActionName, KeyboardShortcut? Shortcut)

@@ -1116,6 +1116,7 @@ internal static class Program
         Assert(new ViewerSettings().Theme == AppTheme.Dark, "Viewer theme should remain dark by default for existing installations.");
         Assert(!new ViewerSettings().HideQuickSearchAfterJump, "Quick search should remain visible after a successful jump by default.");
         Assert(new ViewerSettings().ShowZoomIndicator, "Zoom percentage indicator should be enabled by default.");
+        Assert(new ViewerSettings().EnableSettingsReadabilityColors, "Settings readability colors should be enabled by default.");
         Assert(new ViewerSettings().ZoomIndicatorDisplayMode == ZoomIndicatorDisplayMode.Percentage, "Zoom indicator should default to percentage mode.");
         Assert(
             new ViewerSettings().MainImageCacheMegabytes == 768
@@ -1143,6 +1144,7 @@ internal static class Program
             QuickSearchOffsetY = 96.25,
             SavedFileOpenBehavior = SavedFileOpenBehavior.NewWindow,
             ConfirmDeleteToRecycleBin = false,
+            EnableSettingsReadabilityColors = false,
             SortMode = ImageSortMode.FileSizeLargest,
             LastOpenedFolder = outputFolder,
             OpenLastFolderOnStartup = true,
@@ -1175,6 +1177,7 @@ internal static class Program
         Assert(loaded.QuickSearchOffsetX == 128.5 && loaded.QuickSearchOffsetY == 96.25, "Viewer settings should persist the draggable quick-search position.");
         Assert(loaded.SavedFileOpenBehavior == SavedFileOpenBehavior.NewWindow, "Viewer settings should persist saved file open behavior.");
         Assert(!loaded.ConfirmDeleteToRecycleBin, "Viewer settings should persist delete confirmation preference.");
+        Assert(!loaded.EnableSettingsReadabilityColors, "Viewer settings should persist the readability color preference.");
         Assert(loaded.SortMode == ImageSortMode.FileSizeLargest, "Viewer settings should persist image sort mode.");
         Assert(string.Equals(loaded.LastOpenedFolder, outputFolder, StringComparison.OrdinalIgnoreCase), "Viewer settings should persist the last opened folder.");
         Assert(loaded.OpenLastFolderOnStartup, "Viewer settings should persist last-folder startup behavior.");
@@ -1225,6 +1228,7 @@ internal static class Program
         var compressXaml = File.ReadAllText(Path.Combine(root, "src", "Pixora", "CompressImageWindow.xaml"));
         var batchXaml = File.ReadAllText(Path.Combine(root, "src", "Pixora", "BatchCompressWindow.xaml"));
         Assert(appXaml.Contains("Themes/Theme.Dark.xaml", StringComparison.Ordinal), "Application resources should load a deterministic default theme.");
+        Assert(appXaml.Contains("Themes/Controls.xaml", StringComparison.Ordinal), "Application resources should merge the shared control styles.");
         Assert(mainXaml.Contains("DynamicResource ViewerCanvasBaseBrush", StringComparison.Ordinal), "The image canvas should adapt its checkerboard to the active theme.");
         Assert(!settingsXaml.Contains("#101216", StringComparison.OrdinalIgnoreCase), "Settings should not retain a fixed dark window background.");
         Assert(!compressXaml.Contains("#101216", StringComparison.OrdinalIgnoreCase), "Single-image compression should not retain a fixed dark window background.");
@@ -1359,11 +1363,11 @@ internal static class Program
         Assert(cacheSizingMode?.SelectedValue?.ToString() == "Automatic", "Settings should present automatic cache mode as the default explicit choice.");
         Assert(automaticCacheSummary?.Text.Contains("当前预算", StringComparison.Ordinal) == true, "Automatic cache mode should show the effective runtime budget.");
         Assert(automaticCacheSummaryPanel?.Visibility == Visibility.Visible, "Automatic cache mode should show its hardware summary panel.");
-        Assert(manualCacheSettings?.IsEnabled == false, "Automatic cache mode should disable unrelated manual capacity selectors.");
+        Assert(manualCacheSettings?.Visibility == Visibility.Collapsed, "Automatic cache mode should hide unrelated manual capacity selectors.");
         Assert(mainImageCache?.Items.Cast<ComboBoxItem>().Any(item => item.Tag?.ToString() == "8192") == true, "Settings should expose an 8 GB main-image cache cap for high-end systems.");
         Assert(displayPreviewCache?.Items.Cast<ComboBoxItem>().Any(item => item.Tag?.ToString() == "2048") == true, "Settings should expose a 2 GB preview cache cap for high-end systems.");
         cacheSizingMode!.SelectedValue = "Manual";
-        Assert(manualCacheSettings!.IsEnabled, "Switching to manual cache mode should immediately enable capacity selectors.");
+        Assert(manualCacheSettings!.Visibility == Visibility.Visible, "Switching to manual cache mode should immediately show capacity selectors.");
         Assert(automaticCacheSummaryPanel!.Visibility == Visibility.Collapsed, "Manual cache mode should hide the automatic hardware summary.");
         Assert(TextOptions.GetTextRenderingMode(generalPage) == TextRenderingMode.Grayscale, "Settings page should use stable grayscale text rendering while scrolling.");
         Assert(TextOptions.GetTextHintingMode(generalPage) == TextHintingMode.Animated, "Settings page should use animated text hinting while scrolling.");
@@ -1422,7 +1426,7 @@ internal static class Program
         Assert(!xaml.Contains("Text=\"&#xE70D;\"", StringComparison.Ordinal), "Quick-search mode icon should not show a separate drop-down arrow.");
         Assert(!xaml.Contains("x:Name=\"ModeButtonChrome\"", StringComparison.Ordinal), "Quick-search mode icon should blend into the glass bar without a separate gray selection box.");
         Assert(xaml.Contains("Click=\"QuickSearchGoButton_Click\"", StringComparison.Ordinal), "Quick search should expose a clickable go button.");
-        Assert(xaml.Contains("Text=\"→\"", StringComparison.Ordinal), "Quick search should use a forward arrow for explicit navigation.");
+        Assert(xaml.Contains("Text=\"&#xE72A;\"", StringComparison.Ordinal), "Quick search should use a forward arrow for explicit navigation.");
         Assert(xaml.Contains("InputMethod.IsInputMethodEnabled=\"True\"", StringComparison.Ordinal), "Quick search should locally enable IME for Chinese file-name input.");
         Assert(xaml.Contains("Grid.ColumnSpan=\"2\"", StringComparison.Ordinal), "Quick search should float across the main window instead of living inside the thumbnail sidebar.");
         Assert(code.Contains("ShouldShowQuickSearchThumbnailResults", StringComparison.Ordinal), "Quick search should filter thumbnail results only when the sidebar is visible.");
@@ -1488,8 +1492,9 @@ internal static class Program
         Assert(manifest.Contains("PerMonitorV2,PerMonitor", StringComparison.Ordinal), "Pixora should opt into per-monitor V2 DPI awareness.");
         Assert(manifest.Contains("requestedExecutionLevel level=\"asInvoker\"", StringComparison.Ordinal), "Pixora should run with normal user privileges.");
         Assert(manifest.Contains("{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}", StringComparison.OrdinalIgnoreCase), "Pixora manifest should declare Windows 10 and later compatibility.");
-        Assert(appXaml.Contains("x:Key=\"KeyboardFocusVisual\"", StringComparison.Ordinal), "Shared controls should expose a visible keyboard-focus treatment.");
-        Assert(!appXaml.Contains("FocusVisualStyle\" Value=\"{x:Null}\"", StringComparison.Ordinal), "Shared controls should not suppress keyboard focus visuals.");
+        var controlsXaml = File.ReadAllText(Path.Combine(root, "src", "Pixora", "Themes", "Controls.xaml"));
+        Assert(controlsXaml.Contains("x:Key=\"KeyboardFocusVisual\"", StringComparison.Ordinal), "Shared controls should expose a visible keyboard-focus treatment.");
+        Assert(!controlsXaml.Contains("FocusVisualStyle\" Value=\"{x:Null}\"", StringComparison.Ordinal), "Shared controls should not suppress keyboard focus visuals.");
         Assert(mainXaml.Contains("KeyboardNavigation.TabNavigation=\"Cycle\"", StringComparison.Ordinal), "Quick search should keep Tab navigation inside its compact control group.");
         Assert(mainXaml.Contains("AutomationProperties.Name=\"快速搜索输入\"", StringComparison.Ordinal), "Quick-search input should expose an accessible name.");
         Assert(mainXaml.Contains("AutomationProperties.Name=\"执行快速搜索\"", StringComparison.Ordinal), "Quick-search go button should expose an accessible name.");
@@ -1498,7 +1503,7 @@ internal static class Program
         Assert(settingsXaml.Contains("AutomationProperties.Name=\"清理缩略图磁盘缓存\"", StringComparison.Ordinal), "Cache maintenance button should expose an accessible name.");
         Assert(
             settingsXaml.Split("Style=\"{StaticResource SettingsSection}\"", StringSplitOptions.None).Length - 1 == 5,
-            "General settings should use five flat section groups instead of nested card surfaces.");
+            "General settings should keep exactly five section cards.");
         Assert(compressXaml.Contains("ResizeMode=\"CanResize\"", StringComparison.Ordinal), "Single-image compression should be resizable on constrained work areas.");
         Assert(compressXaml.Contains("VerticalScrollBarVisibility=\"Auto\"", StringComparison.Ordinal), "Single-image compression should scroll rather than clip at small heights.");
         Assert(batchCompressXaml.Contains("MinWidth=\"720\"", StringComparison.Ordinal), "Batch compression should fit narrower desktop work areas.");
