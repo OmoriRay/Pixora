@@ -4,11 +4,11 @@
 
 ## 当前状态
 
-- 当前发布版本：`0.3.9`
-- 发布标签：`v0.3.9`
-- 发布基线提交：`v0.3.9` 标签所指向的提交。
+- 当前发布版本：`0.3.10`
+- 发布标签：`v0.3.10`
+- 发布基线提交：`v0.3.10` 标签所指向的提交。
 - `main` 的发布代码已与远端同步；接手时仍须先检查工作区状态。
-- 正式下载包：GitHub Release `v0.3.9` 中的 `Pixora-win-x64.zip`。
+- 正式下载包：GitHub Release `v0.3.10` 中的 `Pixora-win-x64.zip`。
 - 图片解码依赖 `Magick.NET-Q16-AnyCPU` `14.15.0`；主项目和 smoke test 项目必须保持同一版本，否则会触发 `NU1605` 包降级错误。
 - `publish.ps1` 会显式检查 `dotnet publish` 的 `$LASTEXITCODE`。Windows PowerShell 5.1 下 `$ErrorActionPreference` 不拦截原生命令失败，这个检查不能删。
 - 默认外观仍为深色；设置页支持深色/亮色切换，选择会即时预览并保存到 `viewer-settings.json`。

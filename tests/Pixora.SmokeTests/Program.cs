@@ -1363,11 +1363,11 @@ internal static class Program
         Assert(cacheSizingMode?.SelectedValue?.ToString() == "Automatic", "Settings should present automatic cache mode as the default explicit choice.");
         Assert(automaticCacheSummary?.Text.Contains("当前预算", StringComparison.Ordinal) == true, "Automatic cache mode should show the effective runtime budget.");
         Assert(automaticCacheSummaryPanel?.Visibility == Visibility.Visible, "Automatic cache mode should show its hardware summary panel.");
-        Assert(manualCacheSettings?.IsEnabled == false, "Automatic cache mode should disable unrelated manual capacity selectors.");
+        Assert(manualCacheSettings?.Visibility == Visibility.Collapsed, "Automatic cache mode should hide unrelated manual capacity selectors.");
         Assert(mainImageCache?.Items.Cast<ComboBoxItem>().Any(item => item.Tag?.ToString() == "8192") == true, "Settings should expose an 8 GB main-image cache cap for high-end systems.");
         Assert(displayPreviewCache?.Items.Cast<ComboBoxItem>().Any(item => item.Tag?.ToString() == "2048") == true, "Settings should expose a 2 GB preview cache cap for high-end systems.");
         cacheSizingMode!.SelectedValue = "Manual";
-        Assert(manualCacheSettings!.IsEnabled, "Switching to manual cache mode should immediately enable capacity selectors.");
+        Assert(manualCacheSettings!.Visibility == Visibility.Visible, "Switching to manual cache mode should immediately show capacity selectors.");
         Assert(automaticCacheSummaryPanel!.Visibility == Visibility.Collapsed, "Manual cache mode should hide the automatic hardware summary.");
         Assert(TextOptions.GetTextRenderingMode(generalPage) == TextRenderingMode.Grayscale, "Settings page should use stable grayscale text rendering while scrolling.");
         Assert(TextOptions.GetTextHintingMode(generalPage) == TextHintingMode.Animated, "Settings page should use animated text hinting while scrolling.");

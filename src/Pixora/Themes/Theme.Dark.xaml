@@ -70,6 +70,10 @@
     <SolidColorBrush x:Key="InfoBorderBrush" Color="#315B70" />
     <SolidColorBrush x:Key="InfoTitleBrush" Color="#77CFFC" />
     <SolidColorBrush x:Key="InfoTextBrush" Color="#C8D5DE" />
+    <SolidColorBrush x:Key="PerformanceCalloutSurfaceBrush" Color="#302619" />
+    <SolidColorBrush x:Key="PerformanceCalloutBorderBrush" Color="#8A5D22" />
+    <SolidColorBrush x:Key="PerformanceCalloutTitleBrush" Color="#F3B44C" />
+    <SolidColorBrush x:Key="PerformanceCalloutTextBrush" Color="#D8C6A9" />
     <SolidColorBrush x:Key="WarningSurfaceBrush" Color="#DA27210F" />
     <SolidColorBrush x:Key="WarningBorderBrush" Color="#D9B24F" />
     <SolidColorBrush x:Key="WarningTextBrush" Color="#FFD66B" />

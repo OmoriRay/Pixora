@@ -107,6 +107,7 @@ public partial class ShortcutSettingsWindow : Window
         ApplySectionAccent(FileBehaviorSettingsSection, FileBehaviorSectionIcon, FileBehaviorAccent, enabled);
         ApplySectionAccent(InterfaceSettingsSection, InterfaceSectionIcon, InterfaceAccent, enabled);
         ApplySectionAccent(PerformanceSettingsSection, PerformanceSectionIcon, PerformanceAccent, enabled);
+        ApplyPerformanceCalloutStyling(enabled);
         ApplySectionAccent(DiagnosticsSettingsSection, DiagnosticsSectionIcon, DiagnosticsAccent, enabled);
         ApplySectionAccent(FileAssociationsSettingsSection, FileAssociationsSectionIcon, FileAssociationsAccent, enabled);
     }
@@ -137,6 +138,23 @@ public partial class ShortcutSettingsWindow : Window
             cb.Resources.Remove("AccentBrush");
             cb.Resources.Remove("AccentHoverBrush");
         }
+    }
+
+    private void ApplyPerformanceCalloutStyling(bool readabilityEnabled)
+    {
+        if (readabilityEnabled)
+        {
+            AutomaticCacheSummaryPanel.SetResourceReference(Border.BackgroundProperty, "PerformanceCalloutSurfaceBrush");
+            AutomaticCacheSummaryPanel.SetResourceReference(Border.BorderBrushProperty, "PerformanceCalloutBorderBrush");
+            AutomaticCacheSummaryTitle.SetResourceReference(TextBlock.ForegroundProperty, "PerformanceCalloutTitleBrush");
+            AutomaticCacheSummaryText.SetResourceReference(TextBlock.ForegroundProperty, "PerformanceCalloutTextBrush");
+            return;
+        }
+
+        AutomaticCacheSummaryPanel.SetResourceReference(Border.BackgroundProperty, "InfoSurfaceBrush");
+        AutomaticCacheSummaryPanel.SetResourceReference(Border.BorderBrushProperty, "InfoBorderBrush");
+        AutomaticCacheSummaryTitle.SetResourceReference(TextBlock.ForegroundProperty, "InfoTitleBrush");
+        AutomaticCacheSummaryText.SetResourceReference(TextBlock.ForegroundProperty, "InfoTextBrush");
     }
 
     private static IEnumerable<T> FindLogicalDescendants<T>(DependencyObject parent) where T : DependencyObject
@@ -353,8 +371,7 @@ public partial class ShortcutSettingsWindow : Window
         }
 
         var automatic = IsAutomaticCacheSizingSelected();
-        ManualCacheSettingsPanel.IsEnabled = !automatic;
-        ManualCacheSettingsPanel.Opacity = automatic ? 0.48 : 1;
+        ManualCacheSettingsPanel.Visibility = automatic ? Visibility.Collapsed : Visibility.Visible;
         AutomaticCacheSummaryPanel.Visibility = automatic ? Visibility.Visible : Visibility.Collapsed;
         if (!automatic)
         {
