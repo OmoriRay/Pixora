@@ -436,10 +436,41 @@
                                     <TextBlock x:Name="DiagnosticsSectionIcon" Style="{StaticResource SettingsSectionIcon}" Text="&#xE9D9;" />
                                     <TextBlock Style="{StaticResource SettingsSectionTitle}" Text="诊断与关于" />
                                 </StackPanel>
-                                <TextBlock x:Name="AppVersionText"
-                                           Margin="0,14,0,0"
-                                           Foreground="{DynamicResource TextBodyBrush}"
-                                           FontSize="12" />
+                                <Border x:Name="AppInfoPanel"
+                                        Margin="0,14,0,0"
+                                        Padding="12,10"
+                                        Background="{DynamicResource AccentSurfaceBrush}"
+                                        BorderBrush="{DynamicResource AccentBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="7">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="AppInfoGlyph"
+                                                   Text="&#xE946;"
+                                                   Style="{StaticResource GlyphText}"
+                                                   Foreground="{DynamicResource AccentBrush}"
+                                                   FontSize="20"
+                                                   Margin="0,1,12,0"
+                                                   VerticalAlignment="Top" />
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock x:Name="AppVersionText"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                                       FontSize="14"
+                                                       FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       AutomationProperties.Name="当前版本" />
+                                            <TextBlock x:Name="AppUpdatedText"
+                                                       Margin="0,4,0,0"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                                       FontSize="11"
+                                                       TextWrapping="Wrap"
+                                                       AutomationProperties.Name="程序更新时间" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
                                 <CheckBox x:Name="IncludePrivatePathsInDiagnosticsCheckBox"
                                           Content="诊断信息包含本机完整路径（默认隐藏）"
                                           Margin="0,14,0,0"

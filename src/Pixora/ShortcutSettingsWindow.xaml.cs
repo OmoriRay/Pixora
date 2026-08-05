@@ -71,6 +71,7 @@ public partial class ShortcutSettingsWindow : Window
         SelectComboBoxValue(ThumbnailDiskCacheSizeComboBox, viewerSettings.ThumbnailDiskCacheMegabytes, ViewerSettings.DefaultThumbnailDiskCacheMegabytes);
         _ = RefreshThumbnailDiskCacheInfoAsync();
         AppVersionText.Text = $"{AppInfo.Name} {GetAppVersion()}";
+        AppUpdatedText.Text = $"程序更新时间：{GetAppUpdatedTimeText()}";
         ReadabilityCheckBox.IsChecked = viewerSettings.EnableSettingsReadabilityColors;
         _generalRightSections = [PerformanceSettingsSection, DiagnosticsSettingsSection, FileAssociationsSettingsSection];
         ApplySettingsReadabilityStyling();
@@ -109,6 +110,7 @@ public partial class ShortcutSettingsWindow : Window
         ApplySectionAccent(PerformanceSettingsSection, PerformanceSectionIcon, PerformanceAccent, enabled);
         ApplyPerformanceCalloutStyling(enabled);
         ApplySectionAccent(DiagnosticsSettingsSection, DiagnosticsSectionIcon, DiagnosticsAccent, enabled);
+        ApplyAppInfoPanelStyling(enabled);
         ApplySectionAccent(FileAssociationsSettingsSection, FileAssociationsSectionIcon, FileAssociationsAccent, enabled);
     }
 
@@ -155,6 +157,29 @@ public partial class ShortcutSettingsWindow : Window
         AutomaticCacheSummaryPanel.SetResourceReference(Border.BorderBrushProperty, "InfoBorderBrush");
         AutomaticCacheSummaryTitle.SetResourceReference(TextBlock.ForegroundProperty, "InfoTitleBrush");
         AutomaticCacheSummaryText.SetResourceReference(TextBlock.ForegroundProperty, "InfoTextBrush");
+    }
+
+    private void ApplyAppInfoPanelStyling(bool readabilityEnabled)
+    {
+        if (readabilityEnabled)
+        {
+            AppInfoPanel.Background = CreateFrozenBrush(Color.FromArgb(
+                0x18,
+                DiagnosticsAccent.R,
+                DiagnosticsAccent.G,
+                DiagnosticsAccent.B));
+            AppInfoPanel.BorderBrush = CreateFrozenBrush(Color.FromArgb(
+                0x50,
+                DiagnosticsAccent.R,
+                DiagnosticsAccent.G,
+                DiagnosticsAccent.B));
+            AppInfoGlyph.Foreground = CreateFrozenBrush(DiagnosticsAccent);
+            return;
+        }
+
+        AppInfoPanel.SetResourceReference(Border.BackgroundProperty, "AccentSurfaceBrush");
+        AppInfoPanel.SetResourceReference(Border.BorderBrushProperty, "AccentBorderBrush");
+        AppInfoGlyph.SetResourceReference(TextBlock.ForegroundProperty, "AccentBrush");
     }
 
     private static IEnumerable<T> FindLogicalDescendants<T>(DependencyObject parent) where T : DependencyObject
@@ -1156,9 +1181,36 @@ public partial class ShortcutSettingsWindow : Window
     private static string GetAppVersion()
     {
         var assembly = typeof(ShortcutSettingsWindow).Assembly;
-        return assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+        var version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
             ?? assembly.GetName().Version?.ToString()
-            ?? "unknown";
+            ?? "未知";
+        var buildMetadataSeparator = version.IndexOf('+');
+        return buildMetadataSeparator > 0
+            ? version[..buildMetadataSeparator]
+            : version;
+    }
+
+    private static string GetAppUpdatedTimeText()
+    {
+        try
+        {
+            var executablePath = Environment.ProcessPath;
+            if (string.IsNullOrWhiteSpace(executablePath) || !File.Exists(executablePath))
+            {
+                executablePath = typeof(ShortcutSettingsWindow).Assembly.Location;
+            }
+
+            if (string.IsNullOrWhiteSpace(executablePath) || !File.Exists(executablePath))
+            {
+                return "未知";
+            }
+
+            return File.GetLastWriteTime(executablePath).ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return "未知";
+        }
     }
 
     private static bool ShortcutsEqual(KeyboardShortcut? left, KeyboardShortcut? right)

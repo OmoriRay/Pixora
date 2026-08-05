@@ -1397,6 +1397,9 @@ internal static class Program
         var manualCacheSettings = window.FindName("ManualCacheSettingsPanel") as FrameworkElement;
         var mainImageCache = window.FindName("MainImageCacheComboBox") as ComboBox;
         var displayPreviewCache = window.FindName("DisplayPreviewCacheComboBox") as ComboBox;
+        var appInfoPanel = window.FindName("AppInfoPanel") as Border;
+        var appVersionText = window.FindName("AppVersionText") as TextBlock;
+        var appUpdatedText = window.FindName("AppUpdatedText") as TextBlock;
 
         Assert(comboBox is not null, "Settings window should initialize the thumbnail disk cache capacity selector.");
         Assert(comboBox!.SelectedValue?.ToString() == "1024", "Settings window should select the persisted thumbnail disk cache capacity.");
@@ -1413,6 +1416,11 @@ internal static class Program
         Assert(manualCacheSettings?.Visibility == Visibility.Collapsed, "Automatic cache mode should hide unrelated manual capacity selectors.");
         Assert(mainImageCache?.Items.Cast<ComboBoxItem>().Any(item => item.Tag?.ToString() == "8192") == true, "Settings should expose an 8 GB main-image cache cap for high-end systems.");
         Assert(displayPreviewCache?.Items.Cast<ComboBoxItem>().Any(item => item.Tag?.ToString() == "2048") == true, "Settings should expose a 2 GB preview cache cap for high-end systems.");
+        Assert(appInfoPanel is not null, "Diagnostics and About should expose a dedicated product information panel.");
+        Assert(appVersionText?.Text.StartsWith($"{AppInfo.Name} ", StringComparison.Ordinal) == true, "Product information should display the current Pixora version.");
+        Assert(appVersionText?.Text.Contains('+', StringComparison.Ordinal) == false, "Product information should hide technical build metadata from the user-facing version.");
+        Assert(appUpdatedText?.Text.StartsWith("程序更新时间：", StringComparison.Ordinal) == true, "Product information should display the executable update time.");
+        Assert(appUpdatedText?.Text.Length > "程序更新时间：".Length, "Executable update time should include a formatted value.");
         cacheSizingMode!.SelectedValue = "Manual";
         Assert(manualCacheSettings!.Visibility == Visibility.Visible, "Switching to manual cache mode should immediately show capacity selectors.");
         Assert(automaticCacheSummaryPanel!.Visibility == Visibility.Collapsed, "Manual cache mode should hide the automatic hardware summary.");
@@ -1548,6 +1556,8 @@ internal static class Program
         Assert(mainXaml.Contains("AutomationProperties.LiveSetting=\"Polite\"", StringComparison.Ordinal), "Dynamic viewer status should be announced without interrupting the user.");
         Assert(mainXaml.Contains("AutomationProperties.Name=\"当前目录缩略图\"", StringComparison.Ordinal), "Thumbnail list should expose an accessible name.");
         Assert(settingsXaml.Contains("AutomationProperties.Name=\"清理缩略图磁盘缓存\"", StringComparison.Ordinal), "Cache maintenance button should expose an accessible name.");
+        Assert(settingsXaml.Contains("AutomationProperties.Name=\"当前版本\"", StringComparison.Ordinal), "Settings should expose the application version to accessibility tools.");
+        Assert(settingsXaml.Contains("AutomationProperties.Name=\"程序更新时间\"", StringComparison.Ordinal), "Settings should expose the program update time to accessibility tools.");
         Assert(
             settingsXaml.Split("Style=\"{StaticResource SettingsSection}\"", StringSplitOptions.None).Length - 1 == 5,
             "General settings should keep exactly five section cards.");
