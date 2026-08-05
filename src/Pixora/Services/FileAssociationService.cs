@@ -20,6 +20,8 @@ public static class FileAssociationService
     private const string SetUserFtaFileName = "SetUserFTA.exe";
     private const string FileTypeIconRelativePath = AppInfo.FileTypeIconRelativePath;
     private const string CapabilitiesPath = AppInfo.CapabilitiesPath;
+    private const string ThumbnailHandlerShellExtension = "{E357FCCD-A995-4576-B01F-234630154E96}";
+    private const string WindowsPhotoThumbnailProvider = "{C7657C4A-9F68-40FA-A4DF-96BC08EB3551}";
     private const int ShellChangeNotifyAssociationChanged = 0x08000000;
     private const uint ShellChangeNotifyIdList = 0x0000;
 
@@ -40,7 +42,10 @@ public static class FileAssociationService
 
             var registeredCommand = GetRegisteredOpenCommand();
             if (string.IsNullOrWhiteSpace(registeredCommand)
-                || !NeedsRegistrationRepair(registeredCommand, executablePath))
+                || !NeedsRegistrationRefresh(
+                    registeredCommand,
+                    GetRegisteredThumbnailHandler(),
+                    executablePath))
             {
                 return false;
             }
@@ -72,6 +77,11 @@ public static class FileAssociationService
         using (var commandKey = Registry.CurrentUser.CreateSubKey($@"Software\Classes\{ProgId}\shell\open\command"))
         {
             commandKey?.SetValue(null, CreateOpenCommand(executablePath));
+        }
+
+        using (var thumbnailHandlerKey = Registry.CurrentUser.CreateSubKey(GetThumbnailHandlerRegistryPath()))
+        {
+            thumbnailHandlerKey?.SetValue(null, WindowsPhotoThumbnailProvider);
         }
 
         using (var applicationsCommandKey = Registry.CurrentUser.CreateSubKey($@"Software\Classes\Applications\{Path.GetFileName(executablePath)}\shell\open\command"))
@@ -276,12 +286,32 @@ public static class FileAssociationService
         return commandKey?.GetValue(null) as string;
     }
 
+    private static string? GetRegisteredThumbnailHandler()
+    {
+        using var thumbnailHandlerKey = Registry.CurrentUser.OpenSubKey(GetThumbnailHandlerRegistryPath());
+        return thumbnailHandlerKey?.GetValue(null) as string;
+    }
+
+    private static bool NeedsRegistrationRefresh(
+        string registeredCommand,
+        string? registeredThumbnailHandler,
+        string executablePath)
+    {
+        if (NeedsRegistrationRepair(registeredCommand, executablePath))
+        {
+            return true;
+        }
+
+        return IsOpenCommandForExecutable(registeredCommand, executablePath)
+            && !string.Equals(
+                registeredThumbnailHandler?.Trim(),
+                WindowsPhotoThumbnailProvider,
+                StringComparison.OrdinalIgnoreCase);
+    }
+
     private static bool NeedsRegistrationRepair(string registeredCommand, string executablePath)
     {
-        if (string.Equals(
-            registeredCommand.Trim(),
-            CreateOpenCommand(executablePath),
-            StringComparison.OrdinalIgnoreCase))
+        if (IsOpenCommandForExecutable(registeredCommand, executablePath))
         {
             return false;
         }
@@ -313,6 +343,14 @@ public static class FileAssociationService
             : command;
     }
 
+    private static bool IsOpenCommandForExecutable(string registeredCommand, string executablePath)
+    {
+        return string.Equals(
+            registeredCommand.Trim(),
+            CreateOpenCommand(executablePath),
+            StringComparison.OrdinalIgnoreCase);
+    }
+
     private static string CreateOpenCommand(string executablePath)
     {
         return $"\"{executablePath}\" \"%1\"";
@@ -324,6 +362,11 @@ public static class FileAssociationService
         return File.Exists(iconPath)
             ? $"\"{iconPath}\",0"
             : $"\"{executablePath}\",0";
+    }
+
+    private static string GetThumbnailHandlerRegistryPath()
+    {
+        return $@"Software\Classes\{ProgId}\shellex\{ThumbnailHandlerShellExtension}";
     }
 
     private static bool SupportsSilentDefaultAssociations()

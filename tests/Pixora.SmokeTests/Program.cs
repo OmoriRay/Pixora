@@ -61,6 +61,7 @@ internal static class Program
         AssertWebImageExtensions();
         AssertMediaFormatRegistry();
         AssertFileAssociationMoveRepair(root);
+        AssertFileAssociationThumbnailRepair(root);
         AssertMediaCatalogLoaderCancellation(imageFolder);
         AssertVideoMediaSupport(root);
         AssertCatalogSortModes(root);
@@ -704,6 +705,52 @@ internal static class Program
         Assert(!currentNeedsRepair, "The current Pixora command should not be rewritten on startup.");
         Assert(!installedNeedsRepair, "A valid installed Pixora command should not be replaced by a debug copy.");
         Assert(staleNeedsRepair, "A missing Pixora executable should refresh its stale command path.");
+    }
+
+    private static void AssertFileAssociationThumbnailRepair(string root)
+    {
+        var method = typeof(FileAssociationService).GetMethod(
+            "NeedsRegistrationRefresh",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        if (method is null)
+        {
+            throw new InvalidOperationException("File association thumbnail repair check should exist.");
+        }
+
+        var folder = Path.Combine(root, "test-output", "file-association-thumbnail-repair");
+        if (Directory.Exists(folder))
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+
+        var currentExecutablePath = Path.Combine(folder, "current", "Pixora.exe");
+        var installedExecutablePath = Path.Combine(folder, "installed", "Pixora.exe");
+        Directory.CreateDirectory(Path.GetDirectoryName(currentExecutablePath)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(installedExecutablePath)!);
+        File.WriteAllBytes(currentExecutablePath, []);
+        File.WriteAllBytes(installedExecutablePath, []);
+
+        const string photoThumbnailProvider = "{C7657C4A-9F68-40FA-A4DF-96BC08EB3551}";
+        var currentCommand = $"\"{currentExecutablePath}\" \"%1\"";
+        var installedCommand = $"\"{installedExecutablePath}\" \"%1\"";
+
+        var missingHandlerNeedsRefresh = (bool)method.Invoke(
+            null,
+            [currentCommand, null, currentExecutablePath])!;
+        var wrongHandlerNeedsRefresh = (bool)method.Invoke(
+            null,
+            [currentCommand, "{00000000-0000-0000-0000-000000000000}", currentExecutablePath])!;
+        var completeRegistrationNeedsRefresh = (bool)method.Invoke(
+            null,
+            [currentCommand, photoThumbnailProvider.ToLowerInvariant(), currentExecutablePath])!;
+        var otherInstallationNeedsRefresh = (bool)method.Invoke(
+            null,
+            [installedCommand, null, currentExecutablePath])!;
+
+        Assert(missingHandlerNeedsRefresh, "The current Pixora registration should add a missing Explorer thumbnail handler.");
+        Assert(wrongHandlerNeedsRefresh, "The current Pixora registration should replace an unexpected Explorer thumbnail handler.");
+        Assert(!completeRegistrationNeedsRefresh, "A complete Pixora registration should not be rewritten on every startup.");
+        Assert(!otherInstallationNeedsRefresh, "A debug copy should not modify another valid Pixora installation just to add thumbnail support.");
     }
 
     private static void AssertMediaCatalogLoaderCancellation(string imageFolder)
