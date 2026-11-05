@@ -12,6 +12,8 @@ public sealed record ThumbnailDiskCacheCleanupResult(int RemovedFileCount, long 
 
 public sealed class ThumbnailDiskCache
 {
+    // 包含缩略图渲染语义；变更时让旧版本缓存通过正常淘汰流程退出。
+    private const string CacheFormatVersion = "v2";
     private const int WritesBeforeAutomaticCleanup = 32;
     private long _maxBytes;
     private int _writesSinceCleanup;
@@ -82,7 +84,9 @@ public sealed class ThumbnailDiskCache
         {
             Directory.CreateDirectory(Folder);
             var cachePath = GetCachePath(path, maxWidth, maxHeight);
-            if (File.Exists(cachePath))
+            // 文件存在不代表内容有效。坏缓存应允许后续有效缩略图原子替换；
+            // 不在读取失败时按路径删除，避免误删并发写入者刚替换的缓存。
+            if (TryLoad(path, maxWidth, maxHeight, out _))
             {
                 return;
             }
@@ -144,11 +148,17 @@ public sealed class ThumbnailDiskCache
     public ThumbnailDiskCacheCleanupResult TrimToBytes(long maxBytes, CancellationToken cancellationToken = default)
     {
         var targetBytes = Math.Max(1, maxBytes);
-        var files = GetCacheFiles(cancellationToken)
+        var files = GetCacheFiles(cancellationToken);
+        var totalBytes = files.Sum(GetFileLength);
+        if (totalBytes <= targetBytes)
+        {
+            return new ThumbnailDiskCacheCleanupResult(0, 0, totalBytes);
+        }
+
+        files = files
             .OrderBy(static file => GetLastAccessTimeUtc(file))
             .ThenBy(static file => file.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
-        var totalBytes = files.Sum(GetFileLength);
         var removedFileCount = 0;
         long removedBytes = 0;
 
@@ -191,8 +201,9 @@ public sealed class ThumbnailDiskCache
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                removedBytes += GetFileLength(file);
+                var length = GetFileLength(file);
                 file.Delete();
+                removedBytes += length;
                 removedFileCount++;
             }
             catch
@@ -200,7 +211,9 @@ public sealed class ThumbnailDiskCache
             }
         }
 
-        return new ThumbnailDiskCacheCleanupResult(removedFileCount, removedBytes, 0);
+        // 删除可能因占用而失败，期间也可能有新写入；返回当前实际剩余量。
+        var remainingBytes = GetStatistics(cancellationToken).TotalBytes;
+        return new ThumbnailDiskCacheCleanupResult(removedFileCount, removedBytes, remainingBytes);
     }
 
     private string GetCachePath(string path, int maxWidth, int maxHeight)
@@ -208,6 +221,7 @@ public sealed class ThumbnailDiskCache
         var fileInfo = new FileInfo(path);
         var key = string.Join(
             "|",
+            CacheFormatVersion,
             Path.GetFullPath(path),
             fileInfo.Length.ToString(CultureInfo.InvariantCulture),
             fileInfo.LastWriteTimeUtc.Ticks.ToString(CultureInfo.InvariantCulture),

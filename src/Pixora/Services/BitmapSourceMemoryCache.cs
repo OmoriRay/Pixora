@@ -74,7 +74,7 @@ public sealed class BitmapSourceMemoryCache
                 && entry.Length == stamp.Length
                 && entry.LastWriteTimeUtcTicks == stamp.LastWriteTimeUtcTicks)
             {
-                Touch(key);
+                Touch(entry.UsageNode);
                 bitmap = entry.Bitmap;
                 return true;
             }
@@ -101,9 +101,9 @@ public sealed class BitmapSourceMemoryCache
                 RemoveCore(key, existing);
             }
 
-            _items[key] = new CacheEntry(bitmap, estimatedBytes, stamp.Length, stamp.LastWriteTimeUtcTicks);
+            var usageNode = _usage.AddFirst(key);
+            _items[key] = new CacheEntry(bitmap, estimatedBytes, stamp.Length, stamp.LastWriteTimeUtcTicks, usageNode);
             _totalEstimatedBytes += estimatedBytes;
-            Touch(key);
             TrimToBudget();
         }
     }
@@ -149,29 +149,13 @@ public sealed class BitmapSourceMemoryCache
     {
         _items.Remove(key);
         _totalEstimatedBytes -= entry.EstimatedBytes;
-        RemoveUsage(key);
+        _usage.Remove(entry.UsageNode);
     }
 
-    private void Touch(string key)
+    private void Touch(LinkedListNode<string> node)
     {
-        RemoveUsage(key);
-        _usage.AddFirst(key);
-    }
-
-    private void RemoveUsage(string key)
-    {
-        var node = _usage.First;
-        while (node is not null)
-        {
-            var next = node.Next;
-            if (string.Equals(node.Value, key, StringComparison.OrdinalIgnoreCase))
-            {
-                _usage.Remove(node);
-                return;
-            }
-
-            node = next;
-        }
+        _usage.Remove(node);
+        _usage.AddFirst(node);
     }
 
     private static FileStamp GetFileStamp(string path)
@@ -200,5 +184,6 @@ public sealed class BitmapSourceMemoryCache
         BitmapSource Bitmap,
         long EstimatedBytes,
         long Length,
-        long LastWriteTimeUtcTicks);
+        long LastWriteTimeUtcTicks,
+        LinkedListNode<string> UsageNode);
 }

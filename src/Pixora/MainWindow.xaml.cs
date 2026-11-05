@@ -148,6 +148,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private int _largeImagePreviewMaximumSide = LargeImagePolicy.DefaultPreviewMaximumSide;
     private int _catalogCompletionGeneration;
     private int _folderLoadGeneration;
+    private int _openSessionGeneration;
+    private CancellationTokenSource? _portableDiscoveryCts;
+    private IPortableMediaSource? _portableMediaSource;
+    private bool _isDeviceTemporaryCopy;
+    private bool _isSavingDeviceCopy;
+    private CancellationTokenSource? _deviceCopyCts;
+    private int _folderWatcherGeneration;
     private int _scheduledFitGeneration;
     private int _zoomIndicatorGeneration;
     private int _thumbnailVisibleStartIndex;
@@ -325,6 +332,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         SaveMainWindowPlacement();
         _isClosing = true;
+        _deviceCopyCts?.Cancel();
+        _openSessionGeneration++;
+        DisposePortableMediaSource();
         StopAnimation();
         _qualityRestoreTimer.Stop();
         _quickSearchDebounceTimer.Stop();
@@ -418,6 +428,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async Task OpenPathAsync(string path)
     {
+        var sessionGeneration = BeginOpenSession();
         try
         {
             var fullPath = Path.GetFullPath(path);
@@ -430,13 +441,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 }
 
                 _isFavoritesView = false;
-                await OpenSingleFileAsync(fullPath, rememberFolder: true);
+                await OpenSingleFileAsync(fullPath, rememberFolder: true, sessionGeneration);
                 return;
             }
 
             if (Directory.Exists(fullPath))
             {
-                await OpenFolderAsync(fullPath);
+                await OpenFolderAsync(fullPath, sessionGeneration);
                 return;
             }
 
@@ -444,12 +455,47 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
         catch (Exception ex)
         {
+            if (sessionGeneration != _openSessionGeneration)
+            {
+                return;
+            }
+
             ShowUserError($"无法打开路径：\n{path}\n\n{FriendlyException(ex)}", ex);
         }
     }
 
-    private async Task OpenFolderAsync(string folder)
+    private int BeginOpenSession()
     {
+        var generation = ++_openSessionGeneration;
+        DisposePortableMediaSource();
+        StopFolderWatcher();
+        CancelCatalogCompletion();
+        CancelFolderLoad();
+        _loadCts?.Cancel();
+        _loadCts?.Dispose();
+        _loadCts = null;
+        _isFavoritesView = false;
+        _catalog.LoadFromPaths([]);
+        RefreshThumbnailItems();
+        ClearImage();
+        CancelFolderLoadButton.Visibility = Visibility.Collapsed;
+        return generation;
+    }
+
+    private void DisposePortableMediaSource()
+    {
+        _portableDiscoveryCts?.Cancel();
+        _portableDiscoveryCts?.Dispose();
+        _portableDiscoveryCts = null;
+        _portableMediaSource?.Dispose();
+        _portableMediaSource = null;
+        if (_isDeviceTemporaryCopy) _catalog.SortMode = _viewerSettings.SortMode;
+        _isDeviceTemporaryCopy = false;
+    }
+
+    private async Task OpenFolderAsync(string folder, int? openSessionGeneration = null)
+    {
+        var sessionGeneration = openSessionGeneration ?? BeginOpenSession();
         CancellationTokenSource? cts = null;
         var generation = 0;
         try
@@ -499,17 +545,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             EnterDefaultFitMode();
             await LoadCurrentAsync();
+            if (sessionGeneration != _openSessionGeneration || generation != _folderLoadGeneration)
+            {
+                return;
+            }
+
             RememberOpenedFolder(fullFolder);
             StartFolderWatcher(fullFolder);
             ShowBoundaryToast($"目录扫描完成：{_catalog.Count:N0} 项，{FormatElapsedDuration(stopwatch.Elapsed)}");
         }
         catch (OperationCanceledException)
         {
-            LoadingPanel.Visibility = Visibility.Collapsed;
+            if (sessionGeneration == _openSessionGeneration && generation == _folderLoadGeneration)
+            {
+                LoadingPanel.Visibility = Visibility.Collapsed;
+            }
         }
         catch (Exception ex)
         {
-            if (generation != 0 && generation != _folderLoadGeneration)
+            if (sessionGeneration != _openSessionGeneration
+                || (generation != 0 && generation != _folderLoadGeneration))
             {
                 return;
             }
@@ -524,7 +579,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
 
             cts?.Dispose();
-            CancelFolderLoadButton.Visibility = Visibility.Collapsed;
+            if (sessionGeneration == _openSessionGeneration && generation == _folderLoadGeneration)
+            {
+                CancelFolderLoadButton.Visibility = Visibility.Collapsed;
+            }
         }
     }
 
@@ -547,14 +605,62 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Focus();
     }
 
-    private async Task OpenSingleFileAsync(string fullPath, bool rememberFolder)
+    private async Task OpenSingleFileAsync(string fullPath, bool rememberFolder, int? openSessionGeneration = null)
     {
+        var sessionGeneration = openSessionGeneration ?? BeginOpenSession();
+        StopFolderWatcher();
         CancelFolderLoad();
         CancelCatalogCompletion();
+        if (PortableMediaSource.IsShellTransferPath(fullPath))
+        {
+            _isDeviceTemporaryCopy = true;
+            _catalog.SortMode = ImageSortMode.NameNatural;
+            _catalog.LoadSingleFile(fullPath);
+            RefreshThumbnailItems();
+            EnterDefaultFitMode();
+            LoadingPanel.Visibility = Visibility.Visible;
+            LoadingText.Text = "正在识别手机目录...";
+
+            var discoveryCts = new CancellationTokenSource();
+            _portableDiscoveryCts = discoveryCts;
+            try
+            {
+                var source = await PortableMediaSource.TryCreateAsync(fullPath, discoveryCts.Token);
+                if (sessionGeneration != _openSessionGeneration || _isClosing || discoveryCts.IsCancellationRequested)
+                {
+                    source?.Dispose();
+                    return;
+                }
+
+                if (source is not null)
+                {
+                    _portableMediaSource = source;
+                    _catalog.LoadFromPaths(source.Paths, source.InitialPath, requireExistingFiles: false);
+                    RefreshThumbnailItems();
+                }
+                await LoadCurrentAsync();
+                if (source is null && sessionGeneration == _openSessionGeneration && !_isClosing)
+                {
+                    ShowBoundaryToast("设备临时副本：未识别到手机目录，仅查看当前文件");
+                }
+            }
+            catch (OperationCanceledException) { }
+            finally
+            {
+                if (ReferenceEquals(_portableDiscoveryCts, discoveryCts)) _portableDiscoveryCts = null;
+                discoveryCts.Dispose();
+            }
+            return;
+        }
         _catalog.LoadSingleFile(fullPath);
         RefreshThumbnailItems();
         EnterDefaultFitMode();
         await LoadCurrentAsync();
+        if (sessionGeneration != _openSessionGeneration || _isClosing || _isFavoritesView)
+        {
+            return;
+        }
+
         if (rememberFolder)
         {
             RememberOpenedFolder(Path.GetDirectoryName(fullPath));
@@ -566,6 +672,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void StartCatalogCompletion(string fullPath)
     {
+        if (_isDeviceTemporaryCopy) return;
         var folder = Path.GetDirectoryName(fullPath);
         if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
         {
@@ -680,6 +787,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void StartFolderWatcher(string? folder)
     {
+        if (_isDeviceTemporaryCopy) return;
         StopFolderWatcher();
         if (!_viewerSettings.WatchFolderChanges
             || _isFavoritesView
@@ -702,6 +810,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void StopFolderWatcher()
     {
+        Interlocked.Increment(ref _folderWatcherGeneration);
         _folderWatcherRefreshCts?.Cancel();
         _folderWatcherRefreshCts?.Dispose();
         _folderWatcherRefreshCts = null;
@@ -710,6 +819,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void FolderChangeMonitor_BatchReady(object? sender, FolderChangeBatch batch)
     {
+        var watcherGeneration = Volatile.Read(ref _folderWatcherGeneration);
         if (_isClosing)
         {
             return;
@@ -717,7 +827,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         Dispatcher.BeginInvoke(async () =>
         {
-            if (_isClosing || !_viewerSettings.WatchFolderChanges)
+            if (_isClosing || !_viewerSettings.WatchFolderChanges
+                || watcherGeneration != Volatile.Read(ref _folderWatcherGeneration))
             {
                 return;
             }
@@ -729,7 +840,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             catch (Exception ex)
             {
                 ErrorLog.WriteException("ApplyFolderChangeBatch", "增量更新目录失败，准备回退完整刷新。", ex);
-                await RefreshCatalogFromFolderWatcherAsync();
+                if (watcherGeneration == Volatile.Read(ref _folderWatcherGeneration))
+                {
+                    await RefreshCatalogFromFolderWatcherAsync();
+                }
             }
         }, DispatcherPriority.Background);
     }
@@ -907,7 +1021,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    private async Task LoadCurrentAsync()
+    private Task LoadCurrentAsync() => LoadCurrentCoreAsync(retryDeviceTransfer: false);
+
+    private Task RetryCurrentAsync()
+    {
+        if (_isClosing || _catalog.CurrentPath is null || ErrorPanel.Visibility != Visibility.Visible
+            || LoadingPanel.Visibility == Visibility.Visible)
+            return Task.CompletedTask;
+        return LoadCurrentCoreAsync(retryDeviceTransfer: true);
+    }
+
+    private async Task LoadCurrentCoreAsync(bool retryDeviceTransfer)
     {
         var path = _catalog.CurrentPath;
         if (path is null)
@@ -941,6 +1065,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         try
         {
+            if (_portableMediaSource is { } source)
+            {
+                LoadingText.Text = "正在从手机读取当前文件...";
+                if (retryDeviceTransfer)
+                    await source.RetryLocalFileAsync(path, cts.Token);
+                else
+                    await source.EnsureLocalFileAsync(path, cts.Token);
+                if (!ReferenceEquals(_loadCts, cts) || cts.IsCancellationRequested) return;
+            }
             var document = await LoadInitialDocumentAsync(path, cts.Token);
             if (!ReferenceEquals(_loadCts, cts) || cts.IsCancellationRequested)
             {
@@ -969,6 +1102,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 await CenterAtScaleAsync(_scale);
             }
 
+            if (!ReferenceEquals(_loadCts, cts) || cts.IsCancellationRequested || _isClosing) return;
             FadeInBitmapView();
             UpdateInfoPanel();
             UpdateWindowTitle(path);
@@ -1195,6 +1329,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         CancelPreload();
         if (_isClosing
+            || _isDeviceTemporaryCopy
             || _currentDocument?.IsLargeImagePreview == true
             || ShouldReduceBackgroundLoading())
         {
@@ -3545,6 +3680,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void RememberOpenedFolder(string? folder)
     {
+        if (_isDeviceTemporaryCopy) return;
         if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
         {
             return;
@@ -3681,6 +3817,88 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void CopyFileMenuItem_Click(object sender, RoutedEventArgs e)
     {
         CopyCurrentFile();
+    }
+
+    private async void RetryCurrentButton_Click(object sender, RoutedEventArgs e)
+    {
+        await RetryCurrentAsync();
+    }
+
+    private async void SaveDeviceCopyMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_isDeviceTemporaryCopy || _currentDocument is null || _isSavingDeviceCopy) return;
+        var sourcePath = _catalog.CurrentPath;
+        if (sourcePath is null) return;
+        var dialog = new SaveFileDialog
+        {
+            Title = "保存原始副本到电脑",
+            FileName = Path.GetFileName(sourcePath),
+            DefaultExt = Path.GetExtension(sourcePath),
+            Filter = "原始文件|*" + Path.GetExtension(sourcePath),
+            AddExtension = true,
+            OverwritePrompt = true,
+        };
+        if (dialog.ShowDialog(this) != true || _isClosing) return;
+        // External opens can run inside the dialog's dispatcher loop.
+        if (!string.Equals(sourcePath, _catalog.CurrentPath, StringComparison.OrdinalIgnoreCase))
+        {
+            ShowBoundaryToast("当前图片已切换，请重新选择要保存的文件");
+            return;
+        }
+        using var cts = new CancellationTokenSource();
+        _deviceCopyCts = cts;
+        try
+        {
+            await SaveDeviceCopyToAsync(dialog.FileName, cts.Token);
+            if (!_isClosing) ShowBoundaryToast("原始副本已保存到电脑");
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested) { }
+        catch (OperationCanceledException)
+        {
+            if (!_isClosing) ShowBoundaryToast("读取已取消，请在当前图片加载完成后重新保存");
+        }
+        catch (Exception ex)
+        {
+            if (!_isClosing) ShowUserError($"保存副本失败：\n{FriendlyException(ex)}", ex);
+        }
+        finally
+        {
+            if (ReferenceEquals(_deviceCopyCts, cts)) _deviceCopyCts = null;
+        }
+    }
+
+    private async Task SaveDeviceCopyToAsync(string destinationPath, CancellationToken cancellationToken)
+    {
+        var sourcePath = _catalog.CurrentPath;
+        if (_isClosing || !_isDeviceTemporaryCopy || _isSavingDeviceCopy || sourcePath is null
+            || _currentDocument is null || LoadingPanel.Visibility == Visibility.Visible
+            || !string.Equals(sourcePath, _currentDocument.Path, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("请先完整打开手机文件，再保存副本。");
+        _isSavingDeviceCopy = true;
+        UpdateCommands();
+        var source = _portableMediaSource;
+        var sessionGeneration = _openSessionGeneration;
+        try
+        {
+            if (source is not null)
+            {
+                // A decoded image can outlive its temporary source on disk.
+                // Revalidate/retrieve the original bytes before exporting them.
+                if (!File.Exists(sourcePath)) ShowBoundaryToast("正在重新读取原始文件，完成后保存副本...");
+                await source.RetryLocalFileAsync(sourcePath, cancellationToken);
+                if (sessionGeneration != _openSessionGeneration || !ReferenceEquals(source, _portableMediaSource))
+                    throw new OperationCanceledException("浏览会话已切换。");
+            }
+            else if (!File.Exists(sourcePath))
+                throw new IOException("手机临时文件已被清理，请从资源管理器重新打开照片后保存。");
+            // The copier opens the source synchronously and keeps it alive during export.
+            await OriginalFileCopy.SaveAsync(sourcePath, destinationPath, overwrite: true, cancellationToken);
+        }
+        finally
+        {
+            _isSavingDeviceCopy = false;
+            if (!_isClosing) UpdateCommands();
+        }
     }
 
     private void CopyPathMenuItem_Click(object sender, RoutedEventArgs e)
@@ -4069,6 +4287,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async Task OpenContainingFolderAsync()
     {
+        if (GuardDeviceTemporaryCopy()) return;
         var path = _catalog.CurrentPath;
         if (path is null)
         {
@@ -4208,6 +4427,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async Task DeleteCurrentAsync()
     {
+        if (GuardDeviceTemporaryCopy()) return;
         var path = _catalog.CurrentPath;
         if (path is null)
         {
@@ -4263,6 +4483,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async Task BatchDeleteCurrentDirectoryMediaAsync()
     {
+        if (GuardDeviceTemporaryCopy()) return;
         if (_isFavoritesView)
         {
             ShowUserError("收藏视图下不支持批量删除。请先退出收藏视图，再对当前目录执行批量删除。");
@@ -4529,6 +4750,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async Task ToggleCurrentFavoriteAsync()
     {
+        if (GuardDeviceTemporaryCopy()) return;
         var path = _catalog.CurrentPath;
         if (path is null)
         {
@@ -4568,6 +4790,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async Task LoadFavoritesViewAsync(string? preferredPath, bool showEmptyMessage)
     {
+        BeginOpenSession();
         StopFolderWatcher();
         CancelCatalogCompletion();
         if (_favorites.RemoveMissingOrUnsupported())
@@ -4661,6 +4884,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async Task SetSortModeAsync(ImageSortMode sortMode)
     {
+        if (_isDeviceTemporaryCopy)
+        {
+            ShowBoundaryToast("设备目录按名称自然排序；其他排序请先将文件复制到本地目录");
+            return;
+        }
         var currentPath = _catalog.CurrentPath;
         var shouldRestartCatalogCompletion = !_isFavoritesView && _catalog.IsSingleFileCatalog && currentPath is not null;
         _catalog.SortMode = sortMode;
@@ -4702,6 +4930,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void OpenBatchCompressTools()
     {
+        if (GuardDeviceTemporaryCopy()) return;
         try
         {
             var dialog = new BatchCompressWindow(GetBatchCompressInitialPath())
@@ -4787,6 +5016,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async Task CompressCurrentAsync()
     {
+        if (GuardDeviceTemporaryCopy()) return;
         if (_currentDocument is null || BitmapView.Source is null)
         {
             return;
@@ -4969,7 +5199,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             _viewerSettings.ShowThumbnailSidebar = _showThumbnailSidebar;
             _viewerSettings.UseDoubleThumbnailColumns = _useDoubleThumbnailColumns;
-            _viewerSettings.SortMode = _catalog.SortMode;
+            if (!_isDeviceTemporaryCopy) _viewerSettings.SortMode = _catalog.SortMode;
             _viewerSettings.Save();
         }
         catch (Exception ex)
@@ -5228,6 +5458,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void QueueThumbnailLoad(ThumbnailItem item)
     {
+        // A thumbnail must never initiate a transfer of another device item.
+        if (_isDeviceTemporaryCopy && (_currentDocument is null
+            || !string.Equals(item.Path, _currentDocument.Path, StringComparison.OrdinalIgnoreCase))) return;
         if (item.Thumbnail is not null || item.HasLoadFailed)
         {
             return;
@@ -5634,6 +5867,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async Task BeginCropModeAsync(CropShape shape)
     {
+        if (GuardDeviceTemporaryCopy()) return;
         if (_currentDocument is null || BitmapView.Source is null)
         {
             return;
@@ -6210,6 +6444,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async Task SaveVideoCoverAsync()
     {
+        if (GuardDeviceTemporaryCopy()) return;
         var document = _currentDocument;
         if (document is null || !document.IsVideo)
         {
@@ -6335,6 +6570,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async Task SaveCropCoreAsync()
     {
+        if (GuardDeviceTemporaryCopy()) return;
         if (!_isCropMode || _currentDocument is null || BitmapView.Source is null)
         {
             return;
@@ -6982,7 +7218,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var path = _catalog.CurrentPath;
         if (_currentDocument is not null)
         {
-            var favoriteInfo = IsCurrentFavorite() ? "  ★ 收藏" : string.Empty;
+            var favoriteInfo = _isDeviceTemporaryCopy
+                ? "  设备临时副本（只读）"
+                : IsCurrentFavorite() ? "  ★ 收藏" : string.Empty;
             var rotationInfo = _rotationDegrees == 0 ? string.Empty : $"  旋转 {_rotationDegrees}°";
             if (_currentDocument.IsVideo)
             {
@@ -7015,7 +7253,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         if (path is not null)
         {
-            InfoText.Text = $"{_catalog.Index + 1}/{_catalog.Count}  {Path.GetFileName(path)}\n无法打开\n{path}";
+            var sourceInfo = _isDeviceTemporaryCopy ? "设备临时副本（只读）  " : string.Empty;
+            var loadState = LoadingPanel.Visibility == Visibility.Visible ? "正在读取..." : "无法打开";
+            InfoText.Text = $"{_catalog.Index + 1}/{_catalog.Count}  {Path.GetFileName(path)}\n{sourceInfo}{loadState}\n{path}";
             InfoPanel.Visibility = Visibility.Visible;
             return;
         }
@@ -7049,36 +7289,47 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var isFavorite = hasPath && _catalog.CurrentPath is { } currentPath && _favorites.IsFavorite(currentPath);
 
         FavoriteMenuItem.Header = isFavorite ? "取消收藏" : "加入收藏";
-        FavoriteMenuItem.IsEnabled = hasPath;
+        FavoriteMenuItem.IsEnabled = hasPath && !_isDeviceTemporaryCopy;
         FavoritesViewMenuItem.Header = _isFavoritesView ? "退出收藏视图" : "只看收藏";
         FavoritesViewMenuItem.IsEnabled = _isFavoritesView || _favorites.Count > 0;
         UpdateSortMenuHeaders();
         SortByNameMenuItem.IsEnabled = _catalog.Count > 0;
-        SortByNameDescendingMenuItem.IsEnabled = _catalog.Count > 0;
-        SortByNewestMenuItem.IsEnabled = _catalog.Count > 0;
-        SortByOldestMenuItem.IsEnabled = _catalog.Count > 0;
-        SortByLargestMenuItem.IsEnabled = _catalog.Count > 0;
-        SortBySmallestMenuItem.IsEnabled = _catalog.Count > 0;
+        SortByNameDescendingMenuItem.IsEnabled = !_isDeviceTemporaryCopy && _catalog.Count > 0;
+        SortByNewestMenuItem.IsEnabled = !_isDeviceTemporaryCopy && _catalog.Count > 0;
+        SortByOldestMenuItem.IsEnabled = !_isDeviceTemporaryCopy && _catalog.Count > 0;
+        SortByLargestMenuItem.IsEnabled = !_isDeviceTemporaryCopy && _catalog.Count > 0;
+        SortBySmallestMenuItem.IsEnabled = !_isDeviceTemporaryCopy && _catalog.Count > 0;
         CropMenuItem.Header = _isCropMode && _cropShape == CropShape.Rectangle ? "取消裁剪" : "裁剪图片";
-        CropMenuItem.IsEnabled = hasImage;
+        CropMenuItem.IsEnabled = hasImage && !_isDeviceTemporaryCopy;
         CircleCropMenuItem.Header = _isCropMode && _cropShape == CropShape.Circle ? "取消圆形裁剪" : "圆形裁剪";
-        CircleCropMenuItem.IsEnabled = hasImage;
-        CompressMenuItem.IsEnabled = hasImage;
+        CircleCropMenuItem.IsEnabled = hasImage && !_isDeviceTemporaryCopy;
+        CompressMenuItem.IsEnabled = hasImage && !_isDeviceTemporaryCopy;
         SetAsWallpaperMenuItem.Visibility = hasStaticImage ? Visibility.Visible : Visibility.Collapsed;
         SetAsWallpaperMenuItem.IsEnabled = hasStaticImage;
-        OpenBatchCompressToolsMenuItem.IsEnabled = true;
+        OpenBatchCompressToolsMenuItem.IsEnabled = !_isDeviceTemporaryCopy;
         SaveVideoCoverMenuItem.Visibility = hasVideo ? Visibility.Visible : Visibility.Collapsed;
-        SaveVideoCoverMenuItem.IsEnabled = hasVideo;
+        SaveVideoCoverMenuItem.IsEnabled = hasVideo && !_isDeviceTemporaryCopy;
         BatchDeleteMenuItem.Header = _isFavoritesView ? "批量删除当前目录媒体（收藏视图不可用）" : "批量删除当前目录媒体";
-        BatchDeleteMenuItem.IsEnabled = !_isFavoritesView && _catalog.SourceFolder is not null && _catalog.Count > 0;
+        BatchDeleteMenuItem.IsEnabled = !_isDeviceTemporaryCopy && !_isFavoritesView && _catalog.SourceFolder is not null && _catalog.Count > 0;
         CopyFileMenuItem.Header = hasVideo ? "复制视频文件" : "复制图片文件";
         CopyFileMenuItem.IsEnabled = hasPath;
         CopyNameMenuItem.IsEnabled = hasPath;
         CopyPathMenuItem.IsEnabled = hasPath;
+        SaveDeviceCopyMenuItem.Visibility = _isDeviceTemporaryCopy ? Visibility.Visible : Visibility.Collapsed;
+        SaveDeviceCopyMenuItem.IsEnabled = _isDeviceTemporaryCopy && _currentDocument is not null
+            && LoadingPanel.Visibility != Visibility.Visible && !_isSavingDeviceCopy;
+        var canRetry = hasPath && ErrorPanel.Visibility == Visibility.Visible
+            && LoadingPanel.Visibility != Visibility.Visible && !_isClosing;
+        RetryCurrentButton.Visibility = canRetry ? Visibility.Visible : Visibility.Collapsed;
+        RetryCurrentButton.IsEnabled = canRetry;
+        DeviceRecoveryHint.Visibility = _isDeviceTemporaryCopy && canRetry ? Visibility.Visible : Visibility.Collapsed;
+        DeviceRecoveryHint.Text = _portableMediaSource is not null
+            ? "请连接并解锁手机、开启文件传输，保持资源管理器中的原手机目录打开，再点击“重试读取”。若目录窗口已关闭，请先重新打开；原目录或文件已改变时，请重新双击照片。"
+            : "请检查手机连接并解锁设备。临时文件仍在时可重试；若已被系统清理，请保留手机目录窗口并重新双击照片。";
         var showDiagnostics = ShouldShowDiagnosticsMenuItem();
         CopyDiagnosticsMenuItem.Visibility = showDiagnostics ? Visibility.Visible : Visibility.Collapsed;
         CopyDiagnosticsMenuItem.IsEnabled = showDiagnostics;
-        OpenContainingFolderMenuItem.IsEnabled = hasPath;
+        OpenContainingFolderMenuItem.IsEnabled = hasPath && !_isDeviceTemporaryCopy;
         ToggleInfoMenuItem.IsEnabled = hasPath || hasImage;
         ToggleThumbnailSidebarMenuItem.Header = _showThumbnailSidebar ? "隐藏缩略图栏" : "显示缩略图栏";
         ToggleThumbnailSidebarMenuItem.IsEnabled = true;
@@ -7094,6 +7345,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return ErrorPanel.Visibility == Visibility.Visible
             && _currentDocument is null
             && !string.IsNullOrWhiteSpace(_lastInlineErrorMessage);
+    }
+
+    private bool GuardDeviceTemporaryCopy()
+    {
+        if (!_isDeviceTemporaryCopy) return false;
+        ShowBoundaryToast("当前是设备临时副本，仅供查看；请先将文件复制到本地目录后操作");
+        return true;
     }
 
     private void UpdateSortMenuHeaders()
@@ -7121,7 +7379,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         var index = _catalog.Count > 0 ? $" ({_catalog.Index + 1}/{_catalog.Count})" : string.Empty;
-        Title = AppInfo.FormatTitle($"{Path.GetFileName(path)}{index}");
+        var sourceInfo = _isDeviceTemporaryCopy ? " · 设备临时副本（只读）" : string.Empty;
+        Title = AppInfo.FormatTitle($"{Path.GetFileName(path)}{index}{sourceInfo}");
     }
 
     private void ShowInlineError(string message, Exception? exception = null)

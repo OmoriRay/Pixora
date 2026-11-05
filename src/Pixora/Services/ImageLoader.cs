@@ -178,13 +178,15 @@ public static class ImageLoader
                 "该格式的 WIC 解码器不能在解码阶段缩小超大图片；目前仅支持 JPEG 和 PNG 超大图安全预览。");
         }
 
-        var orientation = ReadExifOrientation(frame);
-        var (decodeWidth, decodeHeight) = LargeImagePolicy.CalculatePreviewDecodeSize(
-            frame.PixelWidth,
-            frame.PixelHeight,
+        var orientation = ExifOrientation.Read(frame);
+        var (orientedWidth, orientedHeight) = ExifOrientation.GetDimensions(frame.PixelWidth, frame.PixelHeight, orientation);
+        var (previewWidth, previewHeight) = LargeImagePolicy.CalculatePreviewDecodeSize(
+            orientedWidth,
+            orientedHeight,
             maxWidth,
             maxHeight,
             largeImageMaximumSide);
+        var (decodeWidth, decodeHeight) = ExifOrientation.GetDimensions(previewWidth, previewHeight, orientation);
         var widthRatio = decodeWidth / Math.Max(1.0, frame.PixelWidth);
         var heightRatio = decodeHeight / Math.Max(1.0, frame.PixelHeight);
 
@@ -222,13 +224,12 @@ public static class ImageLoader
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        var preview = ApplyExifOrientation(bitmap, orientation);
+        var preview = ExifOrientation.Apply(bitmap, orientation);
         if (preview.CanFreeze)
         {
             preview.Freeze();
         }
 
-        var (orientedWidth, orientedHeight) = GetOrientedDimensions(frame.PixelWidth, frame.PixelHeight, orientation);
         return new ImageDocument(
             path,
             preview,
@@ -497,8 +498,8 @@ public static class ImageLoader
         LargeImagePolicy.ValidateSafetyPreviewSource(frame.PixelWidth, frame.PixelHeight);
         var isLargeImagePreview = LargeImagePolicy.RequiresSafetyPreview(frame.PixelWidth, frame.PixelHeight);
 
-        var orientation = ReadExifOrientation(frame);
-        var (orientedWidth, orientedHeight) = GetOrientedDimensions(frame.PixelWidth, frame.PixelHeight, orientation);
+        var orientation = ExifOrientation.Read(frame);
+        var (orientedWidth, orientedHeight) = ExifOrientation.GetDimensions(frame.PixelWidth, frame.PixelHeight, orientation);
         return new ImageDocument(
             path,
             preview,
@@ -605,9 +606,9 @@ public static class ImageLoader
         var frame = decoder.Frames[0];
         LargeImagePolicy.ValidateFullResolutionSource(frame.PixelWidth, frame.PixelHeight);
 
-        var orientation = ReadExifOrientation(frame);
+        var orientation = ExifOrientation.Read(frame);
         var animationFrames = LoadAnimationFrames(path, decoder, orientation, cancellationToken);
-        var bitmap = animationFrames.Count > 0 ? animationFrames[0].Bitmap : ApplyExifOrientation(frame, orientation);
+        var bitmap = animationFrames.Count > 0 ? animationFrames[0].Bitmap : ExifOrientation.Apply(frame, orientation);
         if (bitmap.CanFreeze)
         {
             bitmap.Freeze();
@@ -1132,7 +1133,7 @@ public static class ImageLoader
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var bitmap = ApplyExifOrientation(frame, orientation);
+            var bitmap = ExifOrientation.Apply(frame, orientation);
             if (bitmap.CanFreeze)
             {
                 bitmap.Freeze();
@@ -1532,36 +1533,6 @@ public static class ImageLoader
         return $"{extension} / {codecName}";
     }
 
-    private static BitmapSource ApplyExifOrientation(BitmapSource source, int orientation)
-    {
-        Transform? transform = orientation switch
-        {
-            3 => new RotateTransform(180),
-            6 => new RotateTransform(90),
-            8 => new RotateTransform(270),
-            _ => null,
-        };
-
-        if (transform is null)
-        {
-            return source;
-        }
-
-        var transformed = new TransformedBitmap();
-        transformed.BeginInit();
-        transformed.Source = source;
-        transformed.Transform = transform;
-        transformed.EndInit();
-        return transformed;
-    }
-
-    private static (int Width, int Height) GetOrientedDimensions(int width, int height, int orientation)
-    {
-        return orientation is 5 or 6 or 7 or 8
-            ? (height, width)
-            : (width, height);
-    }
-
     private static TimeSpan ReadFrameDelay(BitmapFrame frame)
     {
         if (frame.Metadata is BitmapMetadata metadata)
@@ -1606,57 +1577,6 @@ public static class ImageLoader
         }
 
         return DefaultAnimationDelay;
-    }
-
-    private static int ReadExifOrientation(BitmapFrame frame)
-    {
-        if (frame.Metadata is not BitmapMetadata metadata)
-        {
-            return 1;
-        }
-
-        foreach (var query in new[] { "/app1/ifd/{ushort=274}", "/ifd/{ushort=274}", "/xmp/tiff:Orientation" })
-        {
-            try
-            {
-                if (!metadata.ContainsQuery(query))
-                {
-                    continue;
-                }
-
-                var value = metadata.GetQuery(query);
-                if (value is ushort ushortValue)
-                {
-                    return ushortValue;
-                }
-
-                if (value is short shortValue)
-                {
-                    return shortValue;
-                }
-
-                if (value is int intValue)
-                {
-                    return intValue;
-                }
-
-                if (value is string stringValue && int.TryParse(stringValue, out var parsed))
-                {
-                    return parsed;
-                }
-            }
-            catch (NotSupportedException)
-            {
-            }
-            catch (InvalidOperationException)
-            {
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-            }
-        }
-
-        return 1;
     }
 
     private readonly record struct GifCanvasSize(int Width, int Height);

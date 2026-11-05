@@ -261,6 +261,11 @@
                         <MenuItem.Icon>
                             <TextBlock Style="{StaticResource MenuIconGlyph}" Text="&#xE7C3;" />
                         </MenuItem.Icon>
+                        <MenuItem x:Name="SaveDeviceCopyMenuItem" Header="保存原始副本到电脑..." Visibility="Collapsed" Click="SaveDeviceCopyMenuItem_Click">
+                            <MenuItem.Icon>
+                                <TextBlock Style="{StaticResource MenuIconGlyph}" Text="&#xE74E;" />
+                            </MenuItem.Icon>
+                        </MenuItem>
                         <MenuItem x:Name="CopyFileMenuItem" Header="复制图片文件" Click="CopyFileMenuItem_Click">
                             <MenuItem.Icon>
                                 <TextBlock Style="{StaticResource MenuIconGlyph}" Text="&#xE8C8;" />
@@ -446,14 +451,24 @@
                                Foreground="{DynamicResource TextSecondaryBrush}"
                                FontSize="13"
                                TextWrapping="Wrap" />
-                    <StackPanel Margin="0,14,0,0"
-                                Orientation="Horizontal">
+                    <TextBlock x:Name="DeviceRecoveryHint"
+                               Margin="0,8,0,0"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               TextWrapping="Wrap"
+                               Visibility="Collapsed" />
+                    <WrapPanel Margin="0,14,0,0">
+                        <Button x:Name="RetryCurrentButton"
+                                Content="重试读取"
+                                Visibility="Collapsed"
+                                Margin="0,0,8,8"
+                                Click="RetryCurrentButton_Click" />
                         <Button Content="重新选择文件"
-                                Margin="0,0,8,0"
+                                Margin="0,0,8,8"
                                 Click="OpenImageMenuItem_Click" />
                         <Button Content="复制诊断信息"
+                                Margin="0,0,0,8"
                                 Click="CopyDiagnosticsMenuItem_Click" />
-                    </StackPanel>
+                    </WrapPanel>
                 </StackPanel>
             </Border>
 

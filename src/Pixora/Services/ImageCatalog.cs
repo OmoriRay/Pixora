@@ -134,7 +134,7 @@ public sealed class ImageCatalog
         IsSingleFileCatalog = false;
     }
 
-    public void LoadFromPaths(IEnumerable<string> paths, string? preferredPath = null)
+    public void LoadFromPaths(IEnumerable<string> paths, string? preferredPath = null, bool requireExistingFiles = true)
     {
         _fileMetadata.Clear();
         var distinctPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -146,7 +146,7 @@ public sealed class ImageCatalog
             }
 
             var fullPath = Path.GetFullPath(path);
-            if (File.Exists(fullPath) && IsSupportedMediaPath(fullPath))
+            if ((!requireExistingFiles || File.Exists(fullPath)) && IsSupportedMediaPath(fullPath))
             {
                 distinctPaths.Add(fullPath);
             }

@@ -81,7 +81,7 @@ public sealed class ImageCache
         {
             if (_items.TryGetValue(path, out var entry))
             {
-                Touch(path);
+                Touch(entry.UsageNode);
                 document = entry.Document;
                 return true;
             }
@@ -106,9 +106,10 @@ public sealed class ImageCache
                 _totalEstimatedBytes -= existing.EstimatedBytes;
             }
 
-            _items[document.Path] = new CacheEntry(document, estimatedBytes);
+            var usageNode = existing?.UsageNode ?? _usage.AddFirst(document.Path);
+            _items[document.Path] = new CacheEntry(document, estimatedBytes, usageNode);
             _totalEstimatedBytes += estimatedBytes;
-            Touch(document.Path);
+            Touch(usageNode);
             TrimToBudget();
         }
     }
@@ -120,9 +121,8 @@ public sealed class ImageCache
             if (_items.Remove(path, out var entry))
             {
                 _totalEstimatedBytes -= entry.EstimatedBytes;
+                _usage.Remove(entry.UsageNode);
             }
-
-            RemoveUsage(path);
         }
     }
 
@@ -158,27 +158,11 @@ public sealed class ImageCache
         }
     }
 
-    private void Touch(string path)
+    private void Touch(LinkedListNode<string> node)
     {
-        RemoveUsage(path);
-        _usage.AddFirst(path);
+        _usage.Remove(node);
+        _usage.AddFirst(node);
     }
 
-    private void RemoveUsage(string path)
-    {
-        var node = _usage.First;
-        while (node is not null)
-        {
-            var next = node.Next;
-            if (string.Equals(node.Value, path, StringComparison.OrdinalIgnoreCase))
-            {
-                _usage.Remove(node);
-                return;
-            }
-
-            node = next;
-        }
-    }
-
-    private sealed record CacheEntry(ImageDocument Document, long EstimatedBytes);
+    private sealed record CacheEntry(ImageDocument Document, long EstimatedBytes, LinkedListNode<string> UsageNode);
 }

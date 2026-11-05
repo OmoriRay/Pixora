@@ -20,6 +20,14 @@ internal static class Program
     private static int Main(string[] args)
     {
         var root = FindRepositoryRoot();
+        if (args.Length == 2 && args[0] == "--portable-file")
+        {
+            PortableMediaRegressionTests.RunDeviceAsync(args[1]).GetAwaiter().GetResult();
+            return 0;
+        }
+        PortableMediaRegressionTests.Run();
+        SingleInstanceCoordinatorRegressionTests.RunAsync().GetAwaiter().GetResult();
+        OriginalFileCopyRegressionTests.RunAsync().GetAwaiter().GetResult();
         var imageFolder = Path.Combine(root, "test-images");
         var firstImage = Path.Combine(imageFolder, "1.png");
         var brokenImage = Path.Combine(imageFolder, "broken.jpg");
@@ -53,6 +61,8 @@ internal static class Program
         AssertAnimatedGifLoads(animatedGif);
         AssertImageCacheSkipsAnimatedDocuments(animatedGif);
         AssertImageCacheUsesMemoryBudget();
+        MemoryCacheRegressionTests.Run();
+        OrientationRegressionTests.Run(root);
         AssertManyFrameGifLoads(root);
         AssertRadianceHdrLoads(hdrImage);
         AssertAvifLoads(avifImage);
@@ -83,8 +93,10 @@ internal static class Program
         AssertDpiAndAccessibility(root);
         AssertMainWindowInitializes();
         AssertSettingsWindowInitializes();
+        OpenSessionRegressionTests.Run(root);
         AssertMemoryCacheCoordinator();
         AssertThumbnailDiskCache(root);
+        ThumbnailDiskCacheRegressionTests.Run(root);
         AssertThumbnailImageLoader(firstImage, root);
         AssertRollingTextFile(root);
         AssertBatchCompressionSettings(root);
@@ -1375,6 +1387,14 @@ internal static class Program
 
     private static void AssertSettingsWindowInitializes()
     {
+        var previousContext = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(new System.Windows.Threading.DispatcherSynchronizationContext());
+        try { AssertSettingsWindowInitializesCore(); }
+        finally { SynchronizationContext.SetSynchronizationContext(previousContext); }
+    }
+
+    private static void AssertSettingsWindowInitializesCore()
+    {
         var viewerSettings = new ViewerSettings
         {
             Theme = AppTheme.Light,
@@ -1426,6 +1446,11 @@ internal static class Program
         Assert(automaticCacheSummaryPanel!.Visibility == Visibility.Collapsed, "Manual cache mode should hide the automatic hardware summary.");
         Assert(TextOptions.GetTextRenderingMode(generalPage) == TextRenderingMode.Grayscale, "Settings page should use stable grayscale text rendering while scrolling.");
         Assert(TextOptions.GetTextHintingMode(generalPage) == TextHintingMode.Animated, "Settings page should use animated text hinting while scrolling.");
+        // Closing cancels async maintenance, but this synthetic settings object
+        // must never replace the user's persisted preferences.
+        typeof(ShortcutSettingsWindow).GetField("_windowPlacementSaved", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(window, true);
+        window.Close();
     }
 
     private static void AssertMainWindowInputMethodDisabled(string root)

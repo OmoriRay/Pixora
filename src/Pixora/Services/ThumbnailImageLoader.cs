@@ -69,6 +69,7 @@ public sealed class ThumbnailImageLoader
 
             int pixelWidth;
             int pixelHeight;
+            int orientation;
             bool supportsNativePreviewScaling;
             using (var probeStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
             {
@@ -84,6 +85,7 @@ public sealed class ThumbnailImageLoader
 
                 pixelWidth = decoder.Frames[0].PixelWidth;
                 pixelHeight = decoder.Frames[0].PixelHeight;
+                orientation = ExifOrientation.Read(decoder.Frames[0]);
                 supportsNativePreviewScaling = decoder is JpegBitmapDecoder or PngBitmapDecoder;
             }
 
@@ -101,8 +103,9 @@ public sealed class ThumbnailImageLoader
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            var widthRatio = maxWidth / Math.Max(1.0, pixelWidth);
-            var heightRatio = maxHeight / Math.Max(1.0, pixelHeight);
+            var (orientedWidth, orientedHeight) = ExifOrientation.GetDimensions(pixelWidth, pixelHeight, orientation);
+            var widthRatio = Math.Max(1, maxWidth) / Math.Max(1.0, orientedWidth);
+            var heightRatio = Math.Max(1, maxHeight) / Math.Max(1.0, orientedHeight);
             var scale = Math.Min(1.0, Math.Min(widthRatio, heightRatio));
             var decodeWidth = Math.Max(1, (int)Math.Round(pixelWidth * scale));
             var decodeHeight = Math.Max(1, (int)Math.Round(pixelHeight * scale));
@@ -112,7 +115,9 @@ public sealed class ThumbnailImageLoader
             bitmap.BeginInit();
             bitmap.CacheOption = BitmapCacheOption.OnLoad;
             bitmap.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
-            if (widthRatio <= heightRatio)
+            var (decodeMaxWidth, decodeMaxHeight) = ExifOrientation.GetDimensions(
+                Math.Max(1, maxWidth), Math.Max(1, maxHeight), orientation);
+            if (decodeMaxWidth / (double)pixelWidth <= decodeMaxHeight / (double)pixelHeight)
             {
                 bitmap.DecodePixelWidth = decodeWidth;
             }
@@ -124,12 +129,12 @@ public sealed class ThumbnailImageLoader
             bitmap.StreamSource = stream;
             bitmap.EndInit();
 
-            if (bitmap.CanFreeze)
+            thumbnail = ExifOrientation.Apply(bitmap, orientation);
+            if (thumbnail.CanFreeze)
             {
-                bitmap.Freeze();
+                thumbnail.Freeze();
             }
 
-            thumbnail = bitmap;
             return true;
         }
         catch (Exception ex) when (ex is NotSupportedException
